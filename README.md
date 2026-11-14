@@ -1,7 +1,9 @@
 # Orbit Flock downloads
 
-Android builds and source archives for Orbit Flock.
+[Download Orbit Flock 0.1.0 APK](https://github.com/sumitverma0975/orbit-flock-downloads/raw/refs/heads/main/downloads/OrbitFlock-v0.1.0.apk)
 
-Development builds are attached to draft releases. Sign in as the repository owner to access their files. APKs require Android 7.0 or newer on an ARM phone.
+First playable Android build: 18 missions, four powers, destructible towers and offline progress. Requires Android 7.0+ on ARM64 or ARMv7 phones. This APK is development signed. Open the downloaded APK on your phone to install it.
 
-The first build is version 0.1.0. Updated builds will be kept separately so earlier downloads remain available.
+Automated gameplay checks and APK signature verification passed. Physical-device testing is still pending. Improved character art and presentation are being developed as a separate version.
+
+The checksum is stored beside the APK. Existing versioned downloads will be preserved.
