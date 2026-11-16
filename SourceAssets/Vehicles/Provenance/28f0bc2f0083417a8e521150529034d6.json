@@ -1,0 +1,187 @@
+{
+  "animationCount": 0,
+  "categories": [
+    {
+      "uid": "22a2f677efad4d7bbca5ad45f9b5868e",
+      "name": "Cars & Vehicles",
+      "slug": "cars-vehicles",
+      "uri": "https://api.sketchfab.com/v3/categories/22a2f677efad4d7bbca5ad45f9b5868e",
+      "icon": "https://static.sketchfab.com/static/builds/web/dist/static/assets/images/icons/categories/45dd0cc0860ac57fcd63bde1cc3f2b7c-v2.svg",
+      "thumbnails": [
+        {
+          "width": "512",
+          "height": "288",
+          "url": "https://static.sketchfab.com/categories/22a2f677efad4d7bbca5ad45f9b5868e/512x288.png"
+        },
+        {
+          "width": "800",
+          "height": "450",
+          "url": "https://static.sketchfab.com/categories/22a2f677efad4d7bbca5ad45f9b5868e/800x450.png"
+        }
+      ]
+    }
+  ],
+  "commentCount": 2,
+  "createdAt": "2020-06-13T08:14:26.772740",
+  "embedUrl": "https://sketchfab.com/models/28f0bc2f0083417a8e521150529034d6/embed",
+  "faceCount": 13445,
+  "isAgeRestricted": false,
+  "license": {
+    "uri": "https://api.sketchfab.com/v3/licenses/322a749bcfa841b29dff1e8a1bb74b0b",
+    "label": "CC Attribution",
+    "fullName": "Creative Commons Attribution",
+    "requirements": "Author must be credited. Commercial use is allowed.",
+    "url": "http://creativecommons.org/licenses/by/4.0/",
+    "slug": "by"
+  },
+  "likeCount": 56,
+  "name": "BMW 320i E90 Low Polly",
+  "publishedAt": "2020-06-13T08:22:45.276917",
+  "soundCount": 0,
+  "staffpickedAt": null,
+  "tags": [
+    {
+      "name": "vehicles",
+      "slug": "vehicles",
+      "uri": "https://api.sketchfab.com/v3/tags/vehicles"
+    },
+    {
+      "name": "bmw",
+      "slug": "bmw",
+      "uri": "https://api.sketchfab.com/v3/tags/bmw"
+    },
+    {
+      "name": "cars",
+      "slug": "cars",
+      "uri": "https://api.sketchfab.com/v3/tags/cars"
+    },
+    {
+      "name": "sedan",
+      "slug": "sedan",
+      "uri": "https://api.sketchfab.com/v3/tags/sedan"
+    },
+    {
+      "name": "german",
+      "slug": "german",
+      "uri": "https://api.sketchfab.com/v3/tags/german"
+    },
+    {
+      "name": "germany",
+      "slug": "germany",
+      "uri": "https://api.sketchfab.com/v3/tags/germany"
+    },
+    {
+      "name": "vehicle",
+      "slug": "vehicle",
+      "uri": "https://api.sketchfab.com/v3/tags/vehicle"
+    },
+    {
+      "name": "lowpoly",
+      "slug": "lowpoly",
+      "uri": "https://api.sketchfab.com/v3/tags/lowpoly"
+    },
+    {
+      "name": "car",
+      "slug": "car",
+      "uri": "https://api.sketchfab.com/v3/tags/car"
+    }
+  ],
+  "thumbnails": {
+    "images": [
+      {
+        "uid": "e90a9d4065874ac6aadaa9d976ab582a",
+        "width": 1920,
+        "height": 1080,
+        "size": 117604,
+        "url": "https://media.sketchfab.com/models/28f0bc2f0083417a8e521150529034d6/thumbnails/40d4606a15844c328d1732a11e53d927/2f78f24558b34f51be9cde3f95555e68.jpeg"
+      },
+      {
+        "uid": "bed29541c8fd428089c6274a9aa1acec",
+        "width": 1024,
+        "height": 576,
+        "size": 33265,
+        "url": "https://media.sketchfab.com/models/28f0bc2f0083417a8e521150529034d6/thumbnails/40d4606a15844c328d1732a11e53d927/a12bb86778014065b15d39c9b31ed30a.jpeg"
+      },
+      {
+        "uid": "6e505f210d2141bbb912ed51d9339c7d",
+        "width": 720,
+        "height": 405,
+        "size": 18662,
+        "url": "https://media.sketchfab.com/models/28f0bc2f0083417a8e521150529034d6/thumbnails/40d4606a15844c328d1732a11e53d927/58dded0096b84ae4b569b02f5e81d8df.jpeg"
+      },
+      {
+        "uid": "d51000c70db64e1cbf712a16725d50db",
+        "width": 256,
+        "height": 144,
+        "size": 4246,
+        "url": "https://media.sketchfab.com/models/28f0bc2f0083417a8e521150529034d6/thumbnails/40d4606a15844c328d1732a11e53d927/a3d789f304d1484db8498c2e5e003cb6.jpeg"
+      },
+      {
+        "uid": "1130dac10adc423ea1b3ebd9329bfe98",
+        "width": 64,
+        "height": 36,
+        "size": 800,
+        "url": "https://media.sketchfab.com/models/28f0bc2f0083417a8e521150529034d6/thumbnails/40d4606a15844c328d1732a11e53d927/dbf22be4df5b42d3b60fdf545912638f.jpeg"
+      }
+    ]
+  },
+  "uid": "28f0bc2f0083417a8e521150529034d6",
+  "uri": "https://api.sketchfab.com/v3/models/28f0bc2f0083417a8e521150529034d6",
+  "user": {
+    "uid": "6b5ee38881d54b3eba680a0503736f5c",
+    "username": "rifdanzz",
+    "displayName": "rifdanzz",
+    "account": "basic",
+    "profileUrl": "https://sketchfab.com/rifdanzz",
+    "avatar": {
+      "uid": "661ff14d6480463a98ccc2a7f0429a6e",
+      "uri": "https://api.sketchfab.com/v3/avatars/661ff14d6480463a98ccc2a7f0429a6e",
+      "images": [
+        {
+          "width": 32,
+          "height": 32,
+          "size": 678,
+          "url": "https://media.sketchfab.com/avatars/661ff14d6480463a98ccc2a7f0429a6e/773675659fc2491abd40642f55a46c3d.jpeg"
+        },
+        {
+          "width": 48,
+          "height": 48,
+          "size": 1000,
+          "url": "https://media.sketchfab.com/avatars/661ff14d6480463a98ccc2a7f0429a6e/70d3a17b3092440dbef63068e8cf105c.jpeg"
+        },
+        {
+          "width": 90,
+          "height": 90,
+          "size": 2167,
+          "url": "https://media.sketchfab.com/avatars/661ff14d6480463a98ccc2a7f0429a6e/d74314d2d03440aeb60fd45a432d6b35.jpeg"
+        },
+        {
+          "width": 100,
+          "height": 100,
+          "size": 2541,
+          "url": "https://media.sketchfab.com/avatars/661ff14d6480463a98ccc2a7f0429a6e/ccbd9ef9c4604011af61549f34549d39.jpeg"
+        }
+      ]
+    },
+    "uri": "https://api.sketchfab.com/v3/users/6b5ee38881d54b3eba680a0503736f5c"
+  },
+  "vertexCount": 9123,
+  "viewCount": 11493,
+  "viewerUrl": "https://sketchfab.com/3d-models/bmw-320i-e90-low-polly-28f0bc2f0083417a8e521150529034d6",
+  "isDownloadable": true,
+  "isProtected": false,
+  "description": "5th Generation of BMW 3 Series\nSedan\n4 Doors\nGreat for traffic etc. on your scene",
+  "price": null,
+  "downloadCount": 2637,
+  "editorUrl": "https://sketchfab.com/models/28f0bc2f0083417a8e521150529034d6/edit",
+  "status": {
+    "warning": {},
+    "processing": "SUCCEEDED"
+  },
+  "source": "website",
+  "hasCommentsDisabled": false,
+  "updatedAt": "2022-07-20T18:47:08.730733",
+  "pbrType": null,
+  "textureCount": 1,
+  "materialCount": 11
+}

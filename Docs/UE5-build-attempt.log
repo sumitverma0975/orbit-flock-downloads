@@ -1,0 +1,10 @@
+Command: bash Tools/build_apk.sh
+Exit status: 1
+
+ROAD DATA: delhi, 862 road parts; source/license/coverage metadata checked.
+ROAD DATA: chandigarh, 677 road parts; source/license/coverage metadata checked.
+ERROR: City map missing or empty: Content/Maps/Lvl_Chandigarh.umap. With UE_ROOT set, run python Tools/setup_map.py.
+ERROR: City map missing or empty: Content/Maps/Lvl_Delhi.umap. With UE_ROOT set, run python Tools/setup_map.py.
+ERROR: Missing fallback car: Content/Cars/BP_Car_01.uasset. Create a configured DriveVehicle Blueprint.
+ERROR: UE_ROOT is not set. Point it to an Unreal Engine 5.5 installation.
+Preflight failed; no Unreal build was attempted.

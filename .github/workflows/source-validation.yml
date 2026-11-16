@@ -1,0 +1,28 @@
+name: Source and data validation
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-data:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check Python syntax
+        run: python -m compileall -q Tools
+      - name: Test OSM conversion
+        run: python -m unittest discover -s Tools/tests -v
+      - name: Validate model source integrity
+        run: python Tools/validate_vehicle_sources.py
+      - name: Check Unreal text inputs
+        run: python Tools/preflight.py --source-only
+      - name: State verification boundary
+        run: echo 'This checks source data only. No Unreal compilation, APK or device test runs in this workflow.'
