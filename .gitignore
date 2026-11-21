@@ -1,0 +1,11 @@
+.godot/
+build/
+*.keystore
+*.jks
+*.apk
+*.aab
+export_credentials.cfg
+*.log
+*.idsig
+__pycache__/
+*.pyc

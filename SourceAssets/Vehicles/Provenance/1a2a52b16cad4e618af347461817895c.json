@@ -1,0 +1,182 @@
+{
+  "animationCount": 0,
+  "categories": [
+    {
+      "uid": "22a2f677efad4d7bbca5ad45f9b5868e",
+      "name": "Cars & Vehicles",
+      "slug": "cars-vehicles",
+      "uri": "https://api.sketchfab.com/v3/categories/22a2f677efad4d7bbca5ad45f9b5868e",
+      "icon": "https://static.sketchfab.com/static/builds/web/dist/static/assets/images/icons/categories/45dd0cc0860ac57fcd63bde1cc3f2b7c-v2.svg",
+      "thumbnails": [
+        {
+          "width": "512",
+          "height": "288",
+          "url": "https://static.sketchfab.com/categories/22a2f677efad4d7bbca5ad45f9b5868e/512x288.png"
+        },
+        {
+          "width": "800",
+          "height": "450",
+          "url": "https://static.sketchfab.com/categories/22a2f677efad4d7bbca5ad45f9b5868e/800x450.png"
+        }
+      ]
+    }
+  ],
+  "commentCount": 7,
+  "createdAt": "2020-05-19T06:51:15.247679",
+  "embedUrl": "https://sketchfab.com/models/1a2a52b16cad4e618af347461817895c/embed",
+  "faceCount": 12518,
+  "isAgeRestricted": false,
+  "license": {
+    "uri": "https://api.sketchfab.com/v3/licenses/322a749bcfa841b29dff1e8a1bb74b0b",
+    "label": "CC Attribution",
+    "fullName": "Creative Commons Attribution",
+    "requirements": "Author must be credited. Commercial use is allowed.",
+    "url": "http://creativecommons.org/licenses/by/4.0/",
+    "slug": "by"
+  },
+  "likeCount": 429,
+  "name": "Mercedes Benz G-class W263",
+  "publishedAt": "2020-05-19T07:24:03.230884",
+  "soundCount": 0,
+  "staffpickedAt": null,
+  "tags": [
+    {
+      "name": "MERCEDES",
+      "slug": "mercedes",
+      "uri": "https://api.sketchfab.com/v3/tags/mercedes"
+    },
+    {
+      "name": "MERCEDES-BENZ",
+      "slug": "mercedes-benz",
+      "uri": "https://api.sketchfab.com/v3/tags/mercedes-benz"
+    },
+    {
+      "name": "g-class",
+      "slug": "g-class",
+      "uri": "https://api.sketchfab.com/v3/tags/g-class"
+    },
+    {
+      "name": "vehicle",
+      "slug": "vehicle",
+      "uri": "https://api.sketchfab.com/v3/tags/vehicle"
+    },
+    {
+      "name": "lowpoly",
+      "slug": "lowpoly",
+      "uri": "https://api.sketchfab.com/v3/tags/lowpoly"
+    },
+    {
+      "name": "car",
+      "slug": "car",
+      "uri": "https://api.sketchfab.com/v3/tags/car"
+    },
+    {
+      "name": "w263",
+      "slug": "w263",
+      "uri": "https://api.sketchfab.com/v3/tags/w263"
+    },
+    {
+      "name": "noai",
+      "slug": "noai",
+      "uri": "https://api.sketchfab.com/v3/tags/noai"
+    }
+  ],
+  "thumbnails": {
+    "images": [
+      {
+        "uid": "ada99c710cf742aa8c856715862eb4eb",
+        "width": 1920,
+        "height": 1080,
+        "size": 189137,
+        "url": "https://media.sketchfab.com/models/1a2a52b16cad4e618af347461817895c/thumbnails/547f1291924f49399d9af96fe32680f8/aea5d6d6124548bfb4c350a583f7b2f8.jpeg"
+      },
+      {
+        "uid": "77b7b9244f8b4054984f58117dd214f0",
+        "width": 1024,
+        "height": 576,
+        "size": 69383,
+        "url": "https://media.sketchfab.com/models/1a2a52b16cad4e618af347461817895c/thumbnails/547f1291924f49399d9af96fe32680f8/004f4c95670444b68c26452069b2a237.jpeg"
+      },
+      {
+        "uid": "d2089b0089344b2d9dbd35c465fb0389",
+        "width": 720,
+        "height": 405,
+        "size": 42319,
+        "url": "https://media.sketchfab.com/models/1a2a52b16cad4e618af347461817895c/thumbnails/547f1291924f49399d9af96fe32680f8/ba5c1604cf254d40a8a1da11b8e81af4.jpeg"
+      },
+      {
+        "uid": "f57872c321194f1e8c4bb218bd7d8c66",
+        "width": 256,
+        "height": 144,
+        "size": 9331,
+        "url": "https://media.sketchfab.com/models/1a2a52b16cad4e618af347461817895c/thumbnails/547f1291924f49399d9af96fe32680f8/2b197ca0faf74f3e9f43b7b2340f3924.jpeg"
+      },
+      {
+        "uid": "160cbadd72114e23bc402f98d8362bba",
+        "width": 64,
+        "height": 36,
+        "size": 1657,
+        "url": "https://media.sketchfab.com/models/1a2a52b16cad4e618af347461817895c/thumbnails/547f1291924f49399d9af96fe32680f8/1ab79499082d41f299e83af60f138a4b.jpeg"
+      }
+    ]
+  },
+  "uid": "1a2a52b16cad4e618af347461817895c",
+  "uri": "https://api.sketchfab.com/v3/models/1a2a52b16cad4e618af347461817895c",
+  "user": {
+    "uid": "493c518a107848cc91ffe4d6771947b4",
+    "username": "Lexyc16",
+    "displayName": "Lexyc16",
+    "account": "basic",
+    "profileUrl": "https://sketchfab.com/Lexyc16",
+    "avatar": {
+      "uid": "5f84164cd7aa4d0ab71bf05b35cb72e8",
+      "uri": "https://api.sketchfab.com/v3/avatars/5f84164cd7aa4d0ab71bf05b35cb72e8",
+      "images": [
+        {
+          "width": 32,
+          "height": 32,
+          "size": 647,
+          "url": "https://media.sketchfab.com/avatars/5f84164cd7aa4d0ab71bf05b35cb72e8/73b3574dfa3249d7acbb1c3b82c76251.jpeg"
+        },
+        {
+          "width": 48,
+          "height": 48,
+          "size": 936,
+          "url": "https://media.sketchfab.com/avatars/5f84164cd7aa4d0ab71bf05b35cb72e8/1dc800ccbd1e43e7a285f2de2e349df0.jpeg"
+        },
+        {
+          "width": 90,
+          "height": 90,
+          "size": 2013,
+          "url": "https://media.sketchfab.com/avatars/5f84164cd7aa4d0ab71bf05b35cb72e8/82cdb658586f48cd89d2c73092e52a4a.jpeg"
+        },
+        {
+          "width": 100,
+          "height": 100,
+          "size": 2294,
+          "url": "https://media.sketchfab.com/avatars/5f84164cd7aa4d0ab71bf05b35cb72e8/24a0e240eabe4a918887b12c11b38e79.jpeg"
+        }
+      ]
+    },
+    "uri": "https://api.sketchfab.com/v3/users/493c518a107848cc91ffe4d6771947b4"
+  },
+  "vertexCount": 7613,
+  "viewCount": 48290,
+  "viewerUrl": "https://sketchfab.com/3d-models/mercedes-benz-g-class-w263-1a2a52b16cad4e618af347461817895c",
+  "isDownloadable": true,
+  "isProtected": false,
+  "description": "The Mercedes-Benz G-Class, sometimes called G-Wagon (short for Geländewagen, \"terrain vehicle\"), is a four-wheel drive automobile manufactured by Magna Steyr (formerly Steyr-Daimler-Puch) in Austria and sold by Mercedes-Benz. Originally developed as a military off-roader, later more luxurious models were added to the line. In certain markets, it has been sold under the Puch name as Puch G.\n\nThe G-Wagon is characterised by its boxy styling and body-on-frame construction. It uses three fully locking differentials, one of the few vehicles to have such a feature.\n\nDespite the introduction of an intended replacement, the unibody SUV Mercedes-Benz GL-Class in 2006, the G-Class is still in production and is one of the longest-produced vehicles in Daimler's history, with a span of 42 years. Only the Unimog surpasses it.[3]\n\nMercedes Benz G-class W263 i made in blender 2.82a",
+  "price": null,
+  "downloadCount": 17843,
+  "editorUrl": "https://sketchfab.com/models/1a2a52b16cad4e618af347461817895c/edit",
+  "status": {
+    "warning": {},
+    "processing": "SUCCEEDED"
+  },
+  "source": "blender-exporter",
+  "hasCommentsDisabled": false,
+  "updatedAt": "2023-11-21T18:01:25.691426",
+  "pbrType": null,
+  "textureCount": 1,
+  "materialCount": 13
+}
