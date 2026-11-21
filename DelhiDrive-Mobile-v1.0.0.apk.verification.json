@@ -1,0 +1,17 @@
+{
+  "filename": "DelhiDrive-Mobile-v1.0.0.apk",
+  "bytes": 57649507,
+  "sha256": "2e1df0db5401fa6a9368e4a25d42590673962ab0e7742390b4344fdd9c3a62ac",
+  "package": "com.sumit.delhidrive.mobile",
+  "architectures": [
+    "arm64-v8a",
+    "armeabi-v7a"
+  ],
+  "min_sdk": "24",
+  "target_sdk": "36",
+  "signature_verified": true,
+  "alignment_16kb_verified": true,
+  "signing_certificate_sha256": "5cc92b1d7eb9f440cd45044d7789fb27c831b52e71fe2b0bccf214fbdfae1c4f",
+  "requested_permissions": [],
+  "verification_scope": "Signature, package metadata and archive integrity. Device gameplay testing is separate."
+}
