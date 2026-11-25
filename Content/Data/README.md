@@ -32,9 +32,9 @@ observations, not verified current road conditions.** A missing pothole record
 never means that a road has no potholes. Feature records are available to runtime
 rendering; not every feature kind or original tag is simulated.
 
-Random gameplay potholes, buildings, traffic vehicles, train schedules and
-mission checkpoints are generated game content. Their positions and behaviour
-do not claim to reproduce actual road conditions, buildings or live traffic.
+The two *_buildings.json files contain simple closed OSM outlines with baked, concave-safe roof triangles. Delhi includes 1,299 footprints and Chandigarh includes 1,088. The footprint snapshots are dated 22 November 2026. Heights identify their source as a tagged height, an estimate from tagged storeys, or a gameplay estimate. Materials, windows and interiors are not surveyed. Courtyard relations and multipart buildings are not reconstructed.
+
+The road generator places simulated potholes, traffic, railway schedules, foliage and mission markers. These do not represent present-day street conditions. The north-up navigation textures are generated from the same ground coordinates as the 3D geometry. Named streets use the name on the nearest road within its carriageway.
 
 ## Refresh and test
 

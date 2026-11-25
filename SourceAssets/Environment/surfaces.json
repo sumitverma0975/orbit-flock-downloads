@@ -1,0 +1,103 @@
+[
+  {
+    "material": "Asphalt",
+    "url": "https://polyhaven.com/a/asphalt_04",
+    "license": "CC0-1.0",
+    "authors": {
+      "Jenelle van Heerden": "Processing",
+      "Sergej Majboroda": "Photography"
+    },
+    "textures": {
+      "Color": {
+        "file": "T_Asphalt_Color.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_04/asphalt_04_diff_1k.jpg",
+        "sha256": "837a78bb1e94864c221f847c85480484e953a9ee958772481dd2c501e18def2e"
+      },
+      "Normal": {
+        "file": "T_Asphalt_Normal.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_04/asphalt_04_nor_dx_1k.jpg",
+        "sha256": "961d894a9a907032ffeeaf8dd46786380de219434cfd364da0badca6aae3b99f"
+      },
+      "Rough": {
+        "file": "T_Asphalt_Rough.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_04/asphalt_04_rough_1k.jpg",
+        "sha256": "0e91a8117a8ec8c89e210dcd680186e66058b92028e89a858cc2fbde4bbfe6da"
+      }
+    }
+  },
+  {
+    "material": "Ground",
+    "url": "https://polyhaven.com/a/dry_ground_01",
+    "license": "CC0-1.0",
+    "authors": {
+      "Rob Tuytel": "All"
+    },
+    "textures": {
+      "Color": {
+        "file": "T_Ground_Color.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/dry_ground_01/dry_ground_01_diff_1k.jpg",
+        "sha256": "75222fc97a82b635a09cf8f2891dd58bc42e49599b9fda920b2c50193fe85e9f"
+      },
+      "Normal": {
+        "file": "T_Ground_Normal.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/dry_ground_01/dry_ground_01_nor_dx_1k.jpg",
+        "sha256": "c2d0d899b707ec29687d4b2907a24ae706b11e59bc681e99475a1d309d363355"
+      },
+      "Rough": {
+        "file": "T_Ground_Rough.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/dry_ground_01/dry_ground_01_rough_1k.jpg",
+        "sha256": "1e2587819279786a45b3a6b766cd75cd571e7e524b787ebd7e534bc7f9bd143e"
+      }
+    }
+  },
+  {
+    "material": "Facade",
+    "url": "https://polyhaven.com/a/white_plaster_02",
+    "license": "CC0-1.0",
+    "authors": {
+      "Rob Tuytel": "All"
+    },
+    "textures": {
+      "Color": {
+        "file": "T_Facade_Color.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/white_plaster_02/white_plaster_02_diff_1k.jpg",
+        "sha256": "a1ebbe091bd1ae93d2abd5de8d69f9003a8d0ee6532bcf9a87c2492c97051f23"
+      },
+      "Normal": {
+        "file": "T_Facade_Normal.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/white_plaster_02/white_plaster_02_nor_dx_1k.jpg",
+        "sha256": "cab2dcee73f27885e5abaa05991f8de3279f1e3984d48b6205a83216fe78b552"
+      },
+      "Rough": {
+        "file": "T_Facade_Rough.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/white_plaster_02/white_plaster_02_rough_1k.jpg",
+        "sha256": "4ff1fe957cd161b07f721fe6c28a9459c8c2e8ec65627a26c16e483a07c80d85"
+      }
+    }
+  },
+  {
+    "material": "Roof",
+    "url": "https://polyhaven.com/a/concrete_pavement_02",
+    "license": "CC0-1.0",
+    "authors": {
+      "Charlotte Baglioni": "All"
+    },
+    "textures": {
+      "Color": {
+        "file": "T_Roof_Color.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_pavement_02/concrete_pavement_02_diff_1k.jpg",
+        "sha256": "e129ee6b59b6ed7f65b4c4c5ba9eb583d13d040ec26bef5d5d4e0080fe342e7a"
+      },
+      "Normal": {
+        "file": "T_Roof_Normal.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_pavement_02/concrete_pavement_02_nor_dx_1k.jpg",
+        "sha256": "705890cf94bb38b3689096908406b94736557adff03f2bf17cad789c4926ae5c"
+      },
+      "Rough": {
+        "file": "T_Roof_Rough.jpg",
+        "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_pavement_02/concrete_pavement_02_rough_1k.jpg",
+        "sha256": "966ee3d1a6d343e5e72d5536fde7c04ecd32e6e95efc879a102effc527f5b679"
+      }
+    }
+  }
+]

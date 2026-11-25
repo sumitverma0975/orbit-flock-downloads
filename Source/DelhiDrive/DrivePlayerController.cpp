@@ -36,6 +36,7 @@ void ADrivePlayerController::BuildLayout(const FVector2D& VS, bool bAuto, TArray
 	Out.Add({ FName("BRAKE"), FVector2D(VS.X - U * 3.9f, VS.Y - U * 1.7f), FVector2D(U * 1.3f, U * 1.1f), TEXT("BRAKE"), true });
 	Out.Add({ FName("HAND"),  FVector2D(VS.X - U * 3.9f, VS.Y - U * 3.7f), FVector2D(U * 1.1f, U * 0.5f), TEXT("HAND"),  true });
 
+	Out.Add({ FName("RECOVER"), FVector2D(VS.X - U * 6.1f, U * 2.6f), FVector2D(U * 1.3f, U * 0.5f), TEXT("RECOVER"), false });
 	Out.Add({ FName("CAM"),  FVector2D(VS.X - U * 1.2f, U * 0.8f), FVector2D(U * 1.0f, U * 0.5f), TEXT("CAM"),  false });
 	Out.Add({ FName("MODE"), FVector2D(VS.X - U * 3.5f, U * 0.8f), FVector2D(U * 1.0f, U * 0.5f), TEXT("MODE"), false });
 	Out.Add({ FName("MENU"), FVector2D(VS.X - U * 5.8f, U * 0.8f), FVector2D(U * 1.0f, U * 0.5f), TEXT("MENU"), false });
@@ -56,6 +57,8 @@ void ADrivePlayerController::BuildMenuLayout(const FVector2D& VS, TArray<FDriveB
 	const float U = VS.Y * 0.1f;
 	const float CX = VS.X * 0.5f;
 	Out.Reset();
+	Out.Add({ FName("CREDITS"), FVector2D(U * 1.55f, U * 9.4f), FVector2D(U * 1.3f, U * .45f), TEXT("CREDITS"), false });
+	Out.Add({ FName("SESSION"), FVector2D(U * 2.3f, U * .65f), FVector2D(U * 2.f, U * .45f), TEXT("SESSION"), false });
 	Out.Add({ FName("CITY"),      FVector2D(VS.X - U * 2.3f, U * 0.65f), FVector2D(U * 2.0f, U * 0.45f), TEXT("CITY"), false });
 	Out.Add({ FName("CAR_PREV"),  FVector2D(CX - U * 5.2f, U * 1.8f),  FVector2D(U * 0.7f, U * 0.65f), TEXT("<"), false });
 	Out.Add({ FName("CAR_NEXT"),  FVector2D(CX + U * 5.2f, U * 1.8f),  FVector2D(U * 0.7f, U * 0.65f), TEXT(">"), false });
@@ -63,8 +66,8 @@ void ADrivePlayerController::BuildMenuLayout(const FVector2D& VS, TArray<FDriveB
 	Out.Add({ FName("DIFF_NEXT"), FVector2D(CX + U * 3.6f, U * 5.15f), FVector2D(U * 0.65f, U * 0.45f), TEXT(">"), false });
 	Out.Add({ FName("LEVEL_PREV"),FVector2D(CX - U * 5.2f, U * 6.35f), FVector2D(U * 0.65f, U * 0.5f), TEXT("<"), false });
 	Out.Add({ FName("LEVEL_NEXT"),FVector2D(CX + U * 5.2f, U * 6.35f), FVector2D(U * 0.65f, U * 0.5f), TEXT(">"), false });
-	Out.Add({ FName("GFX"),       FVector2D(CX - U * 2.9f, U * 8.05f), FVector2D(U * 2.5f, U * 0.6f), TEXT("GRAPHICS"), false });
-	Out.Add({ FName("START"),     FVector2D(CX + U * 2.9f, U * 8.05f), FVector2D(U * 2.5f, U * 0.6f), TEXT("START"), false });
+	Out.Add({ FName("GFX"),       FVector2D(CX - U * 2.9f, U * 8.45f), FVector2D(U * 2.5f, U * 0.6f), TEXT("GRAPHICS"), false });
+	Out.Add({ FName("START"),     FVector2D(CX + U * 2.9f, U * 8.45f), FVector2D(U * 2.5f, U * 0.6f), TEXT("START"), false });
 }
 
 void ADrivePlayerController::BuildOverLayout(const FVector2D& VS, TArray<FDriveButton>& Out)
@@ -86,9 +89,24 @@ bool ADrivePlayerController::IsHeld(FName Id) const
 	return false;
 }
 
+float ADrivePlayerController::PedalInput(FName Id) const
+{
+	float Value = 0.f;
+	for (const TPair<int32,FName>& Pair : Held)
+	{
+		if (Pair.Value == Id)
+		{
+			const float* Pedal = PedalValues.Find(Pair.Key);
+			Value = FMath::Max(Value,Pedal ? *Pedal : 1.f);
+		}
+	}
+	return Value;
+}
+
 void ADrivePlayerController::ResetControls()
 {
 	Held.Reset();
+	PedalValues.Reset();
 	WheelFinger = -1;
 	WheelAngleDeg = 0.f;
 	LastFingerAngle = 0.f;
@@ -130,6 +148,7 @@ void ADrivePlayerController::OnTouchDown(ETouchIndex::Type Finger, FVector Locat
 
 	if (GM && GM->bInMenu)
 	{
+		if (bShowingCredits) { bShowingCredits = false; return; }
 		TArray<FDriveButton> Menu;
 		BuildMenuLayout(VS, Menu);
 		if (HitAny(Menu, P, Id)) HandleMenuButton(Id);
@@ -167,7 +186,12 @@ void ADrivePlayerController::OnTouchDown(ETouchIndex::Type Finger, FVector Locat
 	{
 		if (FMath::Abs(P.X - B.Center.X) <= B.Half.X && FMath::Abs(P.Y - B.Center.Y) <= B.Half.Y)
 		{
-			if (B.bHold) Held.Add(static_cast<int32>(Finger), B.Id);
+			if (B.bHold)
+			{
+				Held.Add(static_cast<int32>(Finger),B.Id);
+				if (B.Id == FName("GAS") || B.Id == FName("BRAKE"))
+					PedalValues.Add(static_cast<int32>(Finger),FMath::Clamp(static_cast<float>((B.Center.Y+B.Half.Y-P.Y)/(2.f*B.Half.Y)),0.f,1.f));
+			}
 			else HandleButton(B.Id);
 			return;
 		}
@@ -178,10 +202,23 @@ void ADrivePlayerController::OnTouchUp(ETouchIndex::Type Finger, FVector Locatio
 {
 	if (WheelFinger == static_cast<int32>(Finger)) WheelFinger = -1;
 	Held.Remove(static_cast<int32>(Finger));
+	PedalValues.Remove(static_cast<int32>(Finger));
 }
 
 void ADrivePlayerController::OnTouchMove(ETouchIndex::Type Finger, FVector Location)
 {
+	if (const FName* Pedal = Held.Find(static_cast<int32>(Finger)))
+	{
+		if (*Pedal == FName("GAS") || *Pedal == FName("BRAKE"))
+		{
+			int32 Width=0,Height=0; GetViewportSize(Width,Height);
+			TArray<FDriveButton> Buttons; FVector2D Center; float Radius=0.f;
+			BuildLayout(FVector2D(Width,Height),true,Buttons,Center,Radius);
+			for (const FDriveButton& Button : Buttons)
+				if (Button.Id == *Pedal) PedalValues.Add(static_cast<int32>(Finger),FMath::Clamp(static_cast<float>((Button.Center.Y+Button.Half.Y-Location.Y)/(2.f*Button.Half.Y)),0.f,1.f));
+		}
+		return;
+	}
 	if (WheelFinger != static_cast<int32>(Finger)) return;
 
 	int32 SX = 0, SY = 0;
@@ -207,6 +244,10 @@ void ADrivePlayerController::HandleButton(FName Id)
 	else if (Id == FName("DR"))   V->ToggleReverse();
 	else if (Id == FName("UP"))   V->ShiftUp();
 	else if (Id == FName("DN"))   V->ShiftDown();
+	else if (Id == FName("RECOVER"))
+	{
+		if (ADriveGameMode* GM = GetWorld()->GetAuthGameMode<ADriveGameMode>()) GM->RecoverVehicle();
+	}
 	else if (Id == FName("MENU"))
 	{
 		if (ADriveGameMode* GM = GetWorld()->GetAuthGameMode<ADriveGameMode>()) GM->OpenMenu();
@@ -218,7 +259,8 @@ void ADrivePlayerController::HandleMenuButton(FName Id)
 	ADriveGameMode* GM = GetWorld()->GetAuthGameMode<ADriveGameMode>();
 	if (!GM) return;
 
-	if (Id == FName("CAR_PREV"))        GM->ChangeCar(this, -1);   // swaps the pawn
+	if (Id == FName("CREDITS")) bShowingCredits = true;
+	else if (Id == FName("CAR_PREV"))        GM->ChangeCar(this, -1);   // swaps the pawn
 	else if (Id == FName("CAR_NEXT"))   GM->ChangeCar(this, +1);
 	else if (Id == FName("DIFF_PREV"))  GM->ChangeDifficulty(-1);
 	else if (Id == FName("DIFF_NEXT"))  GM->ChangeDifficulty(+1);
@@ -226,6 +268,7 @@ void ADrivePlayerController::HandleMenuButton(FName Id)
 	else if (Id == FName("LEVEL_PREV")) GM->ChangeLevel(-1);
 	else if (Id == FName("LEVEL_NEXT")) GM->ChangeLevel(+1);
 	else if (Id == FName("CITY"))       GM->ChangeCity();
+	else if (Id == FName("SESSION"))    GM->ChangeSession();
 	else if (Id == FName("START"))      GM->StartMission();
 }
 
@@ -242,11 +285,14 @@ void ADrivePlayerController::PlayerTick(float DT)
 	{
 		if (GM->bInMenu)
 		{
+			if (WasInputKeyJustPressed(EKeys::F2)) { bShowingCredits = !bShowingCredits; return; }
+			if (bShowingCredits) { if (WasInputKeyJustPressed(EKeys::Escape) || WasInputKeyJustPressed(EKeys::Enter)) bShowingCredits = false; return; }
 			if (WasInputKeyJustPressed(EKeys::Left))  GM->ChangeCar(this, -1);
 			if (WasInputKeyJustPressed(EKeys::Right)) GM->ChangeCar(this, +1);
 			if (WasInputKeyJustPressed(EKeys::Up))    GM->ChangeDifficulty(+1);
 			if (WasInputKeyJustPressed(EKeys::Down))  GM->ChangeDifficulty(-1);
 			if (WasInputKeyJustPressed(EKeys::G))     GM->ChangeQuality(+1);
+			if (WasInputKeyJustPressed(EKeys::T))     GM->ChangeSession();
 			if (WasInputKeyJustPressed(EKeys::Q))     GM->ChangeLevel(-1);
 			if (WasInputKeyJustPressed(EKeys::E))     GM->ChangeLevel(+1);
 			if (WasInputKeyJustPressed(EKeys::C))     GM->ChangeCity();
@@ -269,6 +315,7 @@ void ADrivePlayerController::PlayerTick(float DT)
 		return;
 	}
 
+	if (WasInputKeyJustPressed(EKeys::F1) && GM) { GM->RecoverVehicle(); return; }
 	if (WasInputKeyJustPressed(EKeys::C)) V->CycleCamera();
 	if (WasInputKeyJustPressed(EKeys::M)) V->ToggleAutomatic();
 	if (WasInputKeyJustPressed(EKeys::R)) V->ToggleReverse();
@@ -280,8 +327,8 @@ void ADrivePlayerController::PlayerTick(float DT)
 		return;
 	}
 
-	float Throttle = IsHeld(FName("GAS")) ? 1.f : 0.f;
-	float Brake = IsHeld(FName("BRAKE")) ? 1.f : 0.f;
+	float Throttle = PedalInput(FName("GAS"));
+	float Brake = PedalInput(FName("BRAKE"));
 	bool bHand = IsHeld(FName("HAND"));
 
 	if (IsInputKeyDown(EKeys::W) || IsInputKeyDown(EKeys::Up))   Throttle = 1.f;

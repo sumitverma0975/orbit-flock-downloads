@@ -1,37 +1,27 @@
-# Delivered verification — 16 November 2026
+# Unreal source milestone verification
 
-**No APK was produced. No Unreal compilation or engine runtime test completed.**
+The Android build command exited with code 1 on this host. Unreal Engine 5.5 and an accessible Android-capable Unreal build worker were unavailable. The source archive is downloadable. A signed Unreal APK, an Unreal gameplay capture, and measured on-device performance are pending.
 
-## Checks completed
+| Check | Result |
+| --- | --- |
+| Vehicle inputs | All twelve prepared GLBs matched their catalog IDs, source checksums, dimensions and expected axes. All three externally sourced models had provenance records. |
+| City geometry | 862 Delhi and 677 Chandigarh road parts passed source checks. The 1,299 Delhi and 1,088 Chandigarh building outlines have indexed roofs. Each roof triangle has the expected winding, and their combined area matches its footprint. |
+| Route logic | The portable C++ router selected connected directed road segments on both districts, across four seeds per district. Synthetic topology tests also passed. |
+| Mission logic | All twelve career specifications and six lessons passed a standalone catalog check. The C++ goal evaluator passed 27 boundary cases, including stopping, parking, score and fuel checks. |
+| Vehicle and audio math | Standalone C++ suspension, braking and traction checks passed at 30/60/120 Hz. Synthesized audio checks passed for engine, rolling, braking, impact and silence. These exercise the shared equations and DSP without the Unreal runtime. |
+| Packaging logic | Nine regression tests covered artifact type, payload structure, signature failure, size limit and editor setup completion markers. Source preflight and syntax checks passed. |
+| Visuals | All twelve car models rendered offline in Blender. The [garage image](Docs/vehicle-garage-preview.png) shows the shipped art. Final lighting, wheel contact, materials, touch controls and frame timing require testing in Unreal. |
+| Build attempt | [Android build log](Docs/UE5-build-attempt.log). No editor target build, asset import, map generation, cook, signing or installation ran after the engine prerequisite failed. |
 
-| Check | Result | Boundary |
-|---|---|---|
-| OSM converter unit tests | 6 passed | Projection, clipping, disconnected geometry, access filtering, width precedence, explicit hazard tags and rejection of empty maps |
-| Vehicle source integrity | 3 models passed | SHA256, GLB header/scene geometry, embedded resources and attribution records |
-| glTF validator | 0 errors / 0 warnings for designated import files | Recorded in the vehicle manifest using glTF Transform 4.4.2; not an Unreal import test |
-| Importer validate-only mode | Passed | Source GLB structure, hashes and unsupported-compression checks |
-| Python syntax | Passed | Compilation of Tools scripts; Unreal Python APIs were not executed |
-| Shell build helper syntax | Passed | `bash -n Tools/build_apk.sh` |
-| Source-only preflight | Passed with explicit unavailable-asset messages | Both city JSON files, provenance and packaging configuration |
-| C++ source review | Completed | No concrete compile blocker found; this does not establish successful compilation |
-| Full build helper | Blocked at preflight, nonzero exit | See [build-attempt log](Docs/UE5-build-attempt.log); no Unreal compiler was invoked |
+The full-game goal remains open. Current coverage is two districts on flat terrain, a shared itinerary per city, twelve original career missions, six driving lessons and free touring. Potholes and traffic are simulations. GTA-level image quality, full city coverage, every Dr. Driving mission, and a game download under 3 GB have not been demonstrated.
 
-## Included map snapshots
+Run the source checks with:
 
-| Extract | Road parts | Railway crossings | Explicit mapped feature records | OSM snapshot |
-|---|---:|---:|---:|---|
-| Delhi | 862 | 2 | 433 | 2026-11-15 11:02:36 UTC |
-| Chandigarh | 677 | 0 | 37 | 2026-05-31 22:37:44 UTC |
-
-Both extracts were downloaded on 15 November 2026. The Chandigarh mirror returned an older OSM snapshot; it is not represented as current road-condition data. No explicit pothole nodes were returned for either extract. This is missing coverage, not evidence that their streets contain no potholes.
-
-## Remaining build and game-development work
-
-- Install an Unreal Engine 5.5 Android-capable build toolchain. The execution environment has no UnrealEditor, UnrealBuildTool or RunUAT and no compatible NDK configured.
-- Import, assemble and rig the supplied static models; configure skeletal assets, Chaos wheels, animation, physics and `DriveVehicle` Blueprints. No such `.uasset` files are included yet.
-- Run the supplied map bootstrap inside Unreal to create both actual `.umap` files, then validate lighting and generated roads.
-- Compile and fix any engine/API errors revealed by a real build; cook, sign and package the APK.
-- Test route connectivity, checkpoints, difficulty timing, collision, touch input and save migration in the engine and on phones. Current checkpoint selection is geometric, not graph-routed.
-- Complete city art, sound, vehicle LOD/material optimization and sustained device profiling. No measured FPS, memory budget, photorealistic city or full-game completion is claimed.
-
-The source release contains all project work and redistributable source assets completed here. It is not an installable Android game, and its GitHub source-validation workflow cannot substitute for the steps above.
+```sh
+python3 -m unittest discover -s Tools/tests -v
+python3 Tools/tests/test_mission_catalog.py
+c++ -std=c++17 -Wall -Wextra -Werror Tests/native_vehicle_dynamics_test.cpp -o /tmp/dd-vehicle && /tmp/dd-vehicle
+c++ -std=c++17 -Wall -Wextra -Werror Tools/verify_driving_audio.cpp -o /tmp/dd-audio && /tmp/dd-audio
+python3 Tools/validate_vehicle_sources.py
+python3 Tools/preflight.py --source-only
+```

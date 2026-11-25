@@ -18,4 +18,9 @@ public:
 	UPROPERTY() int32 Quality = -1; // -1 = pick automatically for the platform
 	UPROPERTY() int32 LevelIndex = 0;
 	UPROPERTY() TArray<int32> LevelStars;
+	// Added fields default safely when loading older career-only saves.
+	UPROPERTY() int32 SaveVersion = 2;
+	UPROPERTY() int32 Session = 1;
+	UPROPERTY() int32 SchoolIndex = 0;
+	UPROPERTY() TArray<int32> SchoolStars;
 };

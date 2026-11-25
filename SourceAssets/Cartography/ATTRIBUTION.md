@@ -1,0 +1,1 @@
+District map textures use the shipped road and building extracts. Map data © OpenStreetMap contributors, available under the Open Database Licence 1.0. See https://www.openstreetmap.org/copyright and https://opendatacommons.org/licenses/odbl/1-0/. The source extracts and snapshot dates are in Content/Data. Rebuild both images with Tools/art/bake_district_maps.py (Pillow).

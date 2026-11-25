@@ -3,7 +3,7 @@
 #include "DriveGameMode.h"
 #include "DriveShapes.h"
 #include "Components/SphereComponent.h"
-#include "Components/SkeletalMeshComponent.h"
+#include "Components/PrimitiveComponent.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
 
@@ -47,7 +47,7 @@ void APotholeActor::OnOverlap(UPrimitiveComponent* OverlappedComp, AActor* Other
 	if (Now - LastHitTime < 0.4) return;
 	LastHitTime = Now;
 
-	USkeletalMeshComponent* Body = V->GetMesh();
+	UPrimitiveComponent* Body = V->GetMesh();
 	const float M = Body->GetMass();
 	const float SpeedMs = V->GetVelocity().Size() / 100.f;
 	const float SevMult = GM ? GM->Diff().PotholeSeverityMult : 1.f;
@@ -62,7 +62,7 @@ void APotholeActor::OnOverlap(UPrimitiveComponent* OverlappedComp, AActor* Other
 	FTimerHandle Handle;
 	GetWorldTimerManager().SetTimer(Handle, FTimerDelegate::CreateWeakLambda(V, [V, Loc, M, S, Kick, Slow]()
 	{
-		USkeletalMeshComponent* B = V->GetMesh();
+		UPrimitiveComponent* B = V->GetMesh();
 		const FVector Impulse =
 			FVector(0.f, 0.f, 1.f) * M * Kick * S
 			- V->GetActorForwardVector() * M * Slow * S

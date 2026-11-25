@@ -51,7 +51,11 @@ def main():
             if not (BASE / asset["provenance_file"]).is_file():
                 raise ValueError(f"{asset['id']}: provenance snapshot missing")
             print(f"PASS: {asset['display_name']}: GLB, SHA256, bundled resources, attribution ({size:,} bytes)")
-        print("Vehicle source integrity passed. Unreal import, rigging and runtime remain untested.")
+        from import_vehicle_assets import validate_manifest
+        prepared = validate_manifest()
+        for entry, path in prepared:
+            print(f"PASS: prepared {entry['id']}: catalog path, axes, origin, scale, SHA256, {entry['triangles']:,} triangles")
+        print("Original and prepared source integrity passed. Unreal import and native-physics runtime remain untested.")
         return 0
     except (OSError, ValueError, KeyError, struct.error) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

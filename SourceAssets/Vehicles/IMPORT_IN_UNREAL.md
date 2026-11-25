@@ -1,42 +1,60 @@
-# Importing the vehicle source scenes into Unreal Engine 5.5
+# Vehicle visuals for native Unreal physics
 
-The three included vehicles are static GLB scenes. They contain real geometry and materials, but no skeleton, wheel rig, physics asset or drivable Chaos Blueprint. Their scene hierarchies matter: BMW has 49 mesh definitions, G-Class 22, and AMG GT 33. Importing isolated mesh parts and placing all of them at the origin can break the assembled car.
+The prepared pack contains **twelve complete static car visuals**. Three use attributed BMW/Mercedes artwork; nine are original fictional designs. Every mesh includes bodywork, glazing, wheels, lamps and trim. The native `DriveVehicle` implementation supplies suspension, movement and chassis collision independently of the artwork. Imported visual wheels are static; these are not skeletal Chaos rigs.
 
-The import script and its Unreal Python API calls have been checked against UE5.5 documentation, but have **not run inside Unreal** in this workspace. Source file structure, checksums and attribution have been validated separately.
+## Included runtime paths
 
-## Validate source files
+Each catalog ID maps to `/Game/Cars/Models/SM_<Id>.SM_<Id>`:
 
-From the project directory, run:
+| Catalog ID | Visual | Source triangles |
+|---|---|---:|
+| lux_sedan | BMW 320i E90 | 13,441 |
+| lux_suv | Mercedes-Benz G-Class | 12,516 |
+| lux_coupe | Rhein Sport Coupe, original | 9,852 |
+| lux_limo | Berlin Executive L, original | 9,836 |
+| sup_gt | Mercedes-AMG GT | 54,908 |
+| sup_mid | Stuttgart Mid-Engine, original | 9,552 |
+| sup_hyper | Autobahn Hyper GT, original | 10,048 |
+| sup_track | Nuerburg Track RS, original | 10,288 |
+| lux_estate | Rhein Touring RS, original | 10,084 |
+| lux_grand | Black Forest GT, original | 9,776 |
+| sup_spider | Tejas Spider, original | 9,744 |
+| sup_apex | Vajra Apex, original | 10,276 |
+
+The originals are fictional models; they are not representations of additional manufacturers' cars. The named BMW/Mercedes artwork credits and licence remain in [ATTRIBUTION.md](ATTRIBUTION.md).
+
+## Unattended import
+
+Prepared GLBs and their hashes are already included. **Blender is not needed to import the shipped pack.** With the project's editor module compiled in Unreal Engine 5.5, run:
+
+```text
+UnrealEditor-Cmd <absolute-path>/DelhiDrive.uproject -run=pythonscript -script=<absolute-path>/Tools/import_vehicle_assets.py -unattended -nop4 -NullRHI
+```
+
+The packaging setup script invokes this step automatically. The importer uses automated asset tasks and per-car material directories, then gives the single imported body its stable runtime path. It never relies on an imported scene hierarchy or a manually configured car Blueprint.
+
+`Saved/VehicleAssetImport.json` uses schema version 2. `success` becomes `true` only after every catalog body exists as an actual Unreal StaticMesh and its dimensions, axes and ground origin pass checks. Each entry includes the source SHA-256, asset path, status and bounds. A commandlet exit code alone is not evidence of success. Existing generated assets are preserved only when their previously recorded source hash and current bounds match; use `--replace-existing` intentionally to replace them.
+
+Expected Unreal geometry: centimetres, car forward along **+X**, right along **+Y**, up along **+Z**, centred horizontally, tyres touching Z=0. The native visual attachment fits the body to its driving profile and sets its chassis offset. Prepared GLBs use metres and glTF Y-up, with the car deliberately facing +X so the importer preserves the longitudinal axis when converting up and handedness.
+
+The importer requests two reduced LODs, removes artwork collision (native chassis handles collision), and disables Nanite. Source triangle counts are already bounded if an engine-specific LOD call is unavailable; such calls are recorded as notes. LOD appearance, materials and sustained phone performance must still be checked in Unreal and on a device.
+
+## Regenerate art
+
+The source artwork and Blender generator are provided for reproducibility:
 
 ```sh
+blender -b --python Tools/art/build_vehicle_models.py
 python Tools/validate_vehicle_sources.py
 python Tools/import_vehicle_assets.py --validate-only
 ```
 
-`asset_manifest.json` selects the source for each import. Use `mercedes-benz-amg-gt-import.glb` for the AMG GT: it is the decoded derivative without the original meshopt compression. The original compressed GLB is retained for provenance. Keep `ATTRIBUTION.md`, the license and provenance records when sharing these assets.
+The Blender script bakes source hierarchies, removes the AMG presentation floor, recentres/grounds the car, fits its length, merges material slots, reduces the AMG's geometry budget and writes one identity-node GLB per car. It also creates the nine distinct original models, including a coupe, limousine, estate, grand tourer, mid-engine car, track car, roadster and two hypercar designs. An optional trailing catalog ID after `--` rebuilds only that car.
 
-## Import complete static scenes
+`prepared_manifest.json` records all generated hashes, dimensions and counts. `asset_manifest.json` separately preserves the original third-party downloads and their provenance. Keep both sets of credits when distributing derivatives.
 
-1. Open the project in Unreal Engine 5.5 after compiling its editor module. Enable the Python Editor Script and Interchange import support if they are unavailable.
-2. Save all work in the current level. The importer opens separate preview worlds and refuses to proceed if an open map has unsaved changes.
-3. Choose **Tools → Execute Python Script** and select `Tools/import_vehicle_assets.py`.
-4. Inspect `Saved/VehicleAssetImport.json`. It records actual imported object paths, errors and the preview map created for each car. Geometry/material assets go to `/Game/Cars/Imported/<vehicle_id>`. Preview maps go to `/Game/VehicleImportPreviews/Preview_<vehicle_id>` and are not listed as packaged game maps.
-5. Open each preview map. Check the whole vehicle, every wheel, glass/materials, dimensions and orientation. Use the viewport's Unlit mode when inspecting the geometry in these unlit preview worlds.
+## Verification status
 
-The script uses synchronous **Interchange scene import**, which recreates the source hierarchy and transforms along with the static mesh assets. It does not join all mesh parts or invent wheel pivots. Existing destination assets are preserved by default. For an intentional reimport, use Unreal's Python command runner with script arguments `--replace-existing`; it overwrites imported assets but creates a new preview map instead of overwriting an earlier preview. `--asset-id bmw_320i`, `mercedes_gclass` or `mercedes_amg_gt` limits an import to one car. Inspect any partial failure before retrying.
+All twelve prepared files passed host validation for GLB structure, embedded resources, identity transforms, catalog coverage, hashes, axes, dimensions, grounded/centred origins and triangle budgets. The three third-party originals also passed their existing provenance checks. **Unreal import has not been run in this workspace, so no successful engine import, APK, gameplay capture or phone benchmark is asserted by this document.**
 
-If automated Interchange import fails in your engine version, use Unreal's **File → Import Into Level** with the manifest's GLB file and the Interchange scene workflow. Keep the imported actor hierarchy and transforms, then save the preview level. A Content Browser mesh-only import is not an equivalent assembled-scene import. Alternatively, import the complete GLB scene in Blender, preserve world transforms while joining only the intended body parts, then export your assembled static mesh or properly rigged vehicle as FBX.
-
-## Make a car drivable
-
-Build a Chaos-compatible vehicle rig in a DCC tool, with a root/body bone, separate wheel bones at the correct pivots and valid skin weights. Verify centimetre scale and Unreal's vehicle axis convention. Import the skeletal mesh and skeleton; create/tune a physics asset, wheel classes, suspension, wheel bone assignments and a vehicle animation Blueprint. A migrated UE Vehicle-template rig can serve as a starting point only after its geometry and wheel layout are adapted correctly.
-
-Create a Blueprint derived from this project's `DriveVehicle` class and configure its Chaos movement component, skeletal mesh, animation Blueprint and collision. Save a working fallback at `/Game/Cars/BP_Car_01`, or use the `/Game/Cars/BP_<catalog_id>` paths listed in `Source/DelhiDrive/CarCatalog.cpp` for individual profiles. Static import destinations do not automatically replace those Blueprint paths. Verify acceleration, steering, suspension, reverse, braking and collisions before packaging.
-
-## Mobile asset work still required
-
-The supplied source estimates are approximately 13,441 triangles for BMW, 12,516 for G-Class and **166,321 for AMG GT**, before any Unreal processing. The AMG GT's 30 material slots and separate parts need reduction and consolidation for a phone. Build and inspect LODs, reduce distant detail, cap textures appropriately (start with 1K for most surfaces), keep glass/materials simple, and disable unnecessary shadows and collision on decorative parts. Keep Nanite disabled for the mobile renderer. Confirm memory, frame time and visual quality on the target Android phone; source inclusion and import automation do not establish device performance.
-
-## City maps and packaging
-
-`python Tools/setup_map.py --ue-root /path/to/UE_5.5` builds the editor target and creates missing `/Game/Maps/Lvl_Delhi` and `/Game/Maps/Lvl_Chandigarh` maps using `delhi.json` and `chandigarh.json`. Existing maps are preserved individually. Both maps and `/Game/Cars` are configured for cooking. Run `python Tools/preflight.py --ue-root /path/to/UE_5.5` after supplying the drivable Blueprint; the build scripts also run Unreal Turnkey to check Android SDK/NDK compatibility.
+Any `Docs/vehicle-garage-preview.png` image is labelled as an offline Blender asset preview. It demonstrates the actual model geometry and materials, not an Unreal frame or finished game.

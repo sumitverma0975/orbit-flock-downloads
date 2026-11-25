@@ -9,7 +9,7 @@ public class DelhiDrive : ModuleRules
 		PublicDependencyModuleNames.AddRange(new string[]
 		{
 			"Core", "CoreUObject", "Engine", "InputCore",
-			"ChaosVehicles", "PhysicsCore",
+			"PhysicsCore",
 			"ProceduralMeshComponent", "Json"
 		});
 	}

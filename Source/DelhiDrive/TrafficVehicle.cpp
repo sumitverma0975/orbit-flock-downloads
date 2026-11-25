@@ -1,5 +1,9 @@
 #include "TrafficVehicle.h"
 #include "DriveShapes.h"
+#include "Components/BoxComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "GameFramework/Pawn.h"
+#include "CarCatalog.h"
 #include "DriveGameMode.h"
 #include "Engine/World.h"
 #include "CollisionQueryParams.h"
@@ -12,22 +16,36 @@ ATrafficVehicle::ATrafficVehicle()
 	PrimaryActorTick.TickInterval = 1.f / 30.f;
 #endif
 
-	Body = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Body"));
-	RootComponent = Body;
-	Body->SetStaticMesh(DriveShapes::Cube());
-	Body->SetMobility(EComponentMobility::Movable);
-	Body->SetCollisionProfileName(TEXT("BlockAllDynamic"));
-	Body->SetCastShadow(false);
+    Bounds = CreateDefaultSubobject<UBoxComponent>(TEXT("Chassis bounds"));
+    SetRootComponent(Bounds);
+    Bounds->SetCollisionProfileName(TEXT("BlockAllDynamic"));
+    auto Part = [this](FName Name, UStaticMesh* Mesh)
+    {
+        UStaticMeshComponent* C = CreateDefaultSubobject<UStaticMeshComponent>(Name);
+        C->SetupAttachment(Bounds);
+        C->SetMobility(EComponentMobility::Movable);
+        C->SetStaticMesh(Mesh);
+        C->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        C->SetCullDistance(45000.f);
+        C->SetCastShadow(false);
+        return C;
+    };
+    Body = Part(TEXT("Panels"), DriveShapes::Cube());
+    Cabin = Part(TEXT("Windows"), DriveShapes::Cube());
+    Canopy = Part(TEXT("Canopy"), DriveShapes::Cube());
+    for (int32 I=0; I<4; ++I)
+        Wheels.Add(Part(FName(*FString::Printf(TEXT("Wheel%d"), I)), DriveShapes::Cylinder()));
 }
 
-void ATrafficVehicle::InitPath(const TArray<FVector2D>& InPts, float InRoadWidth, float InGroundZ, int32 InKind)
+void ATrafficVehicle::InitPath(const TArray<FVector2D>& InPts, float InRoadWidth, float InGroundZ, int32 InKind, int32 OneWay)
 {
 	Pts = InPts;
 	RoadW = InRoadWidth;
 	GroundZ = InGroundZ;
 	Kind = InKind;
 	SegI = FMath::RandRange(0, FMath::Max(0, Pts.Num() - 2));
-	Dir = FMath::RandBool() ? 1 : -1;
+	bOneWay = OneWay != 0;
+	Dir = bOneWay ? (OneWay < 0 ? -1 : 1) : (FMath::RandBool() ? 1 : -1);
 }
 
 void ATrafficVehicle::BeginPlay()
@@ -57,8 +75,8 @@ void ATrafficVehicle::BeginPlay()
 		};
 		Colour = Palette[FMath::RandRange(0, 4)];
 	}
-	SetActorScale3D(Half * 2.f / 100.f);
-	DriveShapes::Tint(Body, Colour);
+	Bounds->SetBoxExtent(Half);
+	ConfigureAppearance(Colour);
 
 	Speed = Cruise;
 	if (Pts.Num() >= 2)
@@ -66,6 +84,50 @@ void ATrafficVehicle::BeginPlay()
 		Along = FMath::FRand() * SegLen();
 		UpdateTransform(0.f, true);
 	}
+}
+
+void ATrafficVehicle::ConfigureAppearance(const FLinearColor& Paint)
+{
+    if (Kind == 0)
+    {
+        // Use a small original touring mesh that is already shared with the garage.
+        const FString Path = DriveCatalog::CarStaticMeshPath(8);
+        if (UStaticMesh* Car = LoadObject<UStaticMesh>(nullptr, *Path))
+        {
+            const FBox Box = Car->GetBoundingBox();
+            const double Fit = Half.X * 2. / FMath::Max(Box.GetSize().X, 1.);
+            Body->SetStaticMesh(Car);
+            Body->SetRelativeScale3D(FVector(Fit));
+            Body->SetRelativeLocation(FVector(-Box.GetCenter().X*Fit, -Box.GetCenter().Y*Fit, -Half.Z-Box.Min.Z*Fit));
+            Cabin->SetVisibility(false);
+            Canopy->SetVisibility(false);
+            for (auto& Wheel : Wheels) Wheel->SetVisibility(false);
+            return;
+        }
+    }
+    auto SetPanel = [](UStaticMeshComponent* Panel,const FVector& Position,const FVector& Size,const FLinearColor& Tint)
+    {
+        Panel->SetRelativeLocation(Position);
+        Panel->SetRelativeScale3D(Size/100.);
+        DriveShapes::Tint(Panel,Tint);
+    };
+    SetPanel(Body,{0,0,-0.25*Half.Z},{Half.X*1.98,Half.Y*1.94,Half.Z*0.90},Paint);
+    const double CabinLength = Kind == 2 ? 1.94 : 1.48;
+    SetPanel(Cabin,{-Half.X*(2.-CabinLength)/2.,0,Half.Z*0.45},{Half.X*CabinLength,Half.Y*1.79,Half.Z*0.78},
+             FLinearColor(0.075f,0.14f,0.16f));
+    SetPanel(Canopy,{-Half.X*(2.-CabinLength)/2.,0,Half.Z*0.87},{Half.X*CabinLength,Half.Y*1.91,Half.Z*0.14},
+             Kind==1 ? FLinearColor(0.9f,0.63f,0.055f) : Paint);
+    const double Radius = Half.Z*(Kind==2 ? 0.31 : 0.38);
+    for (int32 I=0; I<Wheels.Num(); ++I)
+    {
+        const bool Front = I<2;
+        const bool TrikeFront = Kind==1 && Front;
+        Wheels[I]->SetVisibility(!(TrikeFront && I==1));
+        Wheels[I]->SetRelativeLocation({Half.X*(Front?0.67:-0.63),TrikeFront ? 0. : Half.Y*(I%2 ? 0.89 : -0.89),-Half.Z+Radius});
+        Wheels[I]->SetRelativeRotation(FRotator(0,0,90));
+        Wheels[I]->SetRelativeScale3D({Radius/50.,Radius/50.,Half.Y*0.32/100.});
+        DriveShapes::Tint(Wheels[I],FLinearColor(.022f,.023f,.025f));
+    }
 }
 
 float ATrafficVehicle::SegLen() const
@@ -82,16 +144,24 @@ void ATrafficVehicle::GetEnds(FVector2D& A, FVector2D& B) const
 	B = (Dir > 0) ? Pts[I + 1] : Pts[I];
 }
 
-void ATrafficVehicle::NextSeg()
+bool ATrafficVehicle::AdvanceSegment()
 {
-	if (Dir > 0)
-	{
-		if (++SegI >= Pts.Num() - 1) { Dir = -1; SegI = Pts.Num() - 2; }
-	}
-	else
-	{
-		if (--SegI < 0) { Dir = 1; SegI = 0; }
-	}
+    const int32 Next = SegI + Dir;
+    if (Next >= 0 && Next < Pts.Num()-1)
+    {
+        SegI = Next;
+        return true;
+    }
+    if (bOneWay && FVector2D::Distance(Pts[0],Pts.Last()) > 100.)
+    {
+        bParked = true;
+        Along = SegLen();
+        Speed = 0.f;
+        return false;
+    }
+    if (bOneWay) SegI = Dir>0 ? 0 : Pts.Num()-2;
+    else Dir = -Dir;
+    return true;
 }
 
 void ATrafficVehicle::UpdateTransform(float DT, bool bSnap)
@@ -105,7 +175,7 @@ void ATrafficVehicle::UpdateTransform(float DT, bool bSnap)
 
 	const FRotator Target(0.f, FMath::RadiansToDegrees(FMath::Atan2(D.Y, D.X)), 0.f);
 	const FRotator Rot = bSnap ? Target : FMath::RInterpTo(GetActorRotation(), Target, DT, 6.f);
-	SetActorLocationAndRotation(FVector(Q.X, Q.Y, GroundZ + Half.Z + 15.f), Rot);
+	SetActorLocationAndRotation(FVector(Q.X, Q.Y, GroundZ + Half.Z), Rot);
 }
 
 void ATrafficVehicle::Tick(float DT)
@@ -115,6 +185,19 @@ void ATrafficVehicle::Tick(float DT)
 	const ADriveGameMode* GM = GetWorld()->GetAuthGameMode<ADriveGameMode>();
 	if (GM && (GM->bInMenu || GM->bMissionOver)) return;
 
+    if (bParked)
+    {
+        const APawn* Driver = UGameplayStatics::GetPlayerPawn(this,0);
+        const FVector2D Origin = Dir>0 ? Pts[0] : Pts.Last();
+        if (!Driver) return;
+        const FVector2D Player(Driver->GetActorLocation().X,Driver->GetActorLocation().Y);
+        if (FVector2D::DistSquared(Player, Origin) < FMath::Square(45000.) ||
+            FVector::DistSquared2D(Driver->GetActorLocation(),GetActorLocation()) < FMath::Square(45000.)) return;
+        SegI = Dir>0 ? 0 : Pts.Num()-2;
+        Along = 0.f;
+        bParked = false;
+        UpdateTransform(0.f,true);
+    }
 	// Look ahead for the player, gates, trains or other traffic (10 times a second, not every frame).
 	TraceTimer -= DT;
 	if (TraceTimer <= 0.f)
@@ -139,7 +222,7 @@ void ATrafficVehicle::Tick(float DT)
 	while (Along >= Len && Guard++ < 8)
 	{
 		Along -= Len;
-		NextSeg();
+		if (!AdvanceSegment()) break;
 		Len = SegLen();
 	}
 	UpdateTransform(DT, false);

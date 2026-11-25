@@ -32,9 +32,11 @@ public:
 	static void BuildMenuLayout(const FVector2D& ViewSize, TArray<FDriveButton>& Out);
 	static void BuildOverLayout(const FVector2D& ViewSize, TArray<FDriveButton>& Out);
 	bool IsHeld(FName Id) const;
+	float PedalInput(FName Id) const;
 	/** Release every touch/steering input when changing screens or restarting. */
 	void ResetControls();
 
+	bool bShowingCredits = false;
 	float WheelAngleDeg = 0.f;
 	static constexpr float MaxWheelDeg = 270.f;
 
@@ -47,6 +49,7 @@ private:
 	bool HitAny(const TArray<FDriveButton>& Buttons, const FVector2D& P, FName& OutId) const;
 
 	TMap<int32, FName> Held;
+	TMap<int32, float> PedalValues;
 	int32 WheelFinger = -1;
 	float LastFingerAngle = 0.f;
 };

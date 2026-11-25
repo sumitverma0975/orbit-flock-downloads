@@ -1,10 +1,16 @@
+Delhi Drive UE 5.5 Android build attempt
+UTC: 2026-11-25T05:37:08.875720+00:00
 Command: bash Tools/build_apk.sh
-Exit status: 1
 
 ROAD DATA: delhi, 862 road parts; source/license/coverage metadata checked.
+BUILDING DATA: delhi, 1299 footprints; roof triangles and provenance checked.
 ROAD DATA: chandigarh, 677 road parts; source/license/coverage metadata checked.
-ERROR: City map missing or empty: Content/Maps/Lvl_Chandigarh.umap. With UE_ROOT set, run python Tools/setup_map.py.
-ERROR: City map missing or empty: Content/Maps/Lvl_Delhi.umap. With UE_ROOT set, run python Tools/setup_map.py.
-ERROR: Missing fallback car: Content/Cars/BP_Car_01.uasset. Create a configured DriveVehicle Blueprint.
-ERROR: UE_ROOT is not set. Point it to an Unreal Engine 5.5 installation.
-Preflight failed; no Unreal build was attempted.
+BUILDING DATA: chandigarh, 1088 footprints; roof triangles and provenance checked.
+ART SOURCES: twelve prepared cars and four environment surfaces verified by SHA256.
+UNAVAILABLE: City map missing or empty: Content/Maps/Lvl_Chandigarh.umap. With UE_ROOT set, run python Tools/setup_map.py.
+UNAVAILABLE: City map missing or empty: Content/Maps/Lvl_Delhi.umap. With UE_ROOT set, run python Tools/setup_map.py.
+UNAVAILABLE: Prepared runtime assets require UE import: Content/Cars/Models/SM_lux_sedan.uasset, Content/Cars/Models/SM_lux_suv.uasset, Content/Cars/Models/SM_lux_coupe.uasset, Content/Cars/Models/SM_lux_limo.uasset, Content/Cars/Models/SM_sup_gt.uasset, Content/Cars/Models/SM_sup_mid.uasset, Content/Cars/Models/SM_sup_hyper.uasset, Content/Cars/Models/SM_sup_track.uasset, Content/Cars/Models/SM_lux_estate.uasset, Content/Cars/Models/SM_lux_grand.uasset, Content/Cars/Models/SM_sup_spider.uasset, Content/Cars/Models/SM_sup_apex.uasset, Content/Environment/M_Asphalt.uasset, Content/Environment/M_Ground.uasset, Content/Environment/M_Facade.uasset, Content/Environment/M_Roof.uasset, Content/Environment/T_Daylight.uasset, Content/Environment/T_Map_delhi.uasset, Content/Environment/T_Map_chandigarh.uasset. Run Tools/setup_map.py.
+Source inputs validated. C++ compilation, imported UE assets, cooking and device performance remain unverified.
+ERROR: UE_ROOT is not set. Install Unreal Engine 5.5 with Android support; no APK was built.
+
+Exit code: 1

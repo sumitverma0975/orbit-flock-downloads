@@ -53,3 +53,13 @@ Validated all three designated import GLBs with `@gltf-transform/cli` version **
 These are real static 3D source models, **not drivable Unreal vehicle Blueprints**. They contain no skeletal skin, animation, Chaos wheel setup or physics asset. Importing a GLB can generate static meshes/materials, but a playable Chaos car still needs a correctly oriented vehicle rig, a physics asset, wheel classes, animation setup and a `DriveVehicle` Blueprint. Unreal import has not been run in this environment.
 
 BMW 320i and G-Class have about 13k triangles each. AMG GT has about 166k triangles and 30 materials, so reduce LOD triangle counts/material sections before using it on Android. All models need checks for dimensions, orientation, material appearance and collision after import. No phone frame-rate measurements are claimed.
+
+## Prepared native-physics visual derivatives
+
+`Prepared/SM_lux_sedan.glb`, `Prepared/SM_lux_suv.glb` and `Prepared/SM_sup_gt.glb` derive respectively from the BMW 320i E90, Mercedes G-Class and Mercedes-AMG GT artworks credited above. They retain CC BY 4.0 attribution and source links.
+
+Additional changes made by `Tools/art/build_vehicle_models.py`: scene hierarchy baked into one mesh; duplicate material slots merged while retaining authored materials and textures; geometry aligned +X-forward, horizontally centred and grounded; scale fitted to the game's chosen length; AMG presentation floor removed and car geometry reduced from 166,321 to 54,908 triangles for the mobile source budget. Original downloaded files remain alongside these derivatives. Game dimensions and handling are not manufacturer specifications.
+
+The other nine `Prepared/SM_*.glb` files are original fictional car artwork generated specifically for Delhi Drive by the included Blender script. They contain no downloaded third-party vehicle geometry and do not claim to depict any real manufacturer's model. Their filenames map to the fictional catalog IDs in `prepared_manifest.json`.
+
+A future game release must retain the artist, original artwork URL, licence URL and modification notice in accessible credits or an accompanying attribution file. The offline Blender preview is an art inspection image, not a gameplay screenshot.

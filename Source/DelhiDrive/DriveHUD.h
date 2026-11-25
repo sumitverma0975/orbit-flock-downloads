@@ -4,7 +4,10 @@
 #include "GameFramework/HUD.h"
 #include "DriveHUD.generated.h"
 
-/** Canvas HUD: steering wheel, pedals, buttons, speed/RPM/gear, fuel, mission text. No texture assets needed. */
+class UTexture2D;
+class ARoadNetworkActor;
+
+/** Driving controls, instrument cluster and north-up district navigation. */
 UCLASS()
 class DELHIDRIVE_API ADriveHUD : public AHUD
 {
@@ -12,4 +15,10 @@ class DELHIDRIVE_API ADriveHUD : public AHUD
 
 public:
 	virtual void DrawHUD() override;
+private:
+	UPROPERTY(Transient) TObjectPtr<UTexture2D> DistrictMap;
+	int32 CachedCity = INDEX_NONE;
+    TWeakObjectPtr<ARoadNetworkActor> DistrictRoads;
+    double NextStreetUpdate = 0.;
+    FString CurrentStreet;
 };

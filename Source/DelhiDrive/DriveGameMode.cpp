@@ -1,4 +1,5 @@
 #include "DriveGameMode.h"
+#include "DriveMissionRules.h"
 #include "DrivePlayerController.h"
 #include "DriveHUD.h"
 #include "DriveVehicle.h"
@@ -49,7 +50,8 @@ UClass* ADriveGameMode::LoadCarClass(int32 Index) const
 	{
 		return C;
 	}
-	return StaticLoadClass(ADriveVehicle::StaticClass(), nullptr, *FallbackCarPath, nullptr, LOAD_NoWarn);
+	if (UClass* Fallback = StaticLoadClass(ADriveVehicle::StaticClass(), nullptr, *FallbackCarPath, nullptr, LOAD_NoWarn)) return Fallback;
+	return ADriveVehicle::StaticClass();
 }
 
 UClass* ADriveGameMode::GetDefaultPawnClassForController_Implementation(AController* InController)
@@ -75,6 +77,9 @@ void ADriveGameMode::LoadProgress()
 		Quality = S->Quality;
 		LevelIndex = FMath::Clamp(S->LevelIndex, 0, DriveLevels::NumLevels() - 1);
 		LevelStars = S->LevelStars;
+		Session = static_cast<EDriveSession>(FMath::Clamp(S->Session, 0, 2));
+		SchoolIndex = FMath::Clamp(S->SchoolIndex, 0, DriveLevels::NumLessons() - 1);
+		SchoolStars = S->SchoolStars;
 	}
 	else
 	{
@@ -91,6 +96,11 @@ void ADriveGameMode::LoadProgress()
 		++HighestUnlockedLevel;
 	}
 	LevelIndex = FMath::Min(LevelIndex, HighestUnlockedLevel);
+	SchoolStars.SetNumZeroed(DriveLevels::NumLessons());
+	for (int32& Stars : SchoolStars) Stars = FMath::Clamp(Stars, 0, 3);
+	HighestUnlockedLesson = 0;
+	while (HighestUnlockedLesson + 1 < DriveLevels::NumLessons() && SchoolStars[HighestUnlockedLesson] > 0) ++HighestUnlockedLesson;
+	SchoolIndex = FMath::Min(SchoolIndex, HighestUnlockedLesson);
 	if (!IsCarUnlocked(CarIndex)) CarIndex = 0;
 	if (Quality < 0)
 	{
@@ -114,6 +124,9 @@ void ADriveGameMode::SaveProgress()
 	S->Quality = Quality;
 	S->LevelIndex = LevelIndex;
 	S->LevelStars = LevelStars;
+	S->Session = static_cast<int32>(Session);
+	S->SchoolIndex = SchoolIndex;
+	S->SchoolStars = SchoolStars;
 	UGameplayStatics::SaveGameToSlot(S, GSaveSlot, 0);
 }
 
@@ -202,10 +215,43 @@ void ADriveGameMode::ChangeQuality(int32 Delta)
 
 void ADriveGameMode::ChangeLevel(int32 Delta)
 {
-	const int32 N = DriveLevels::NumLevels();
-	LevelIndex = ((LevelIndex + Delta) % N + N) % N;
+	if (IsTour()) return;
+	const int32 N = ChallengeCount();
+	int32& Index = IsSchool() ? SchoolIndex : LevelIndex;
+	Index = ((Index + Delta) % N + N) % N;
 	ApplyDifficulty();
 	SaveProgress();
+}
+
+void ADriveGameMode::ChangeSession()
+{
+	if (!bInMenu) return;
+	Session = static_cast<EDriveSession>((static_cast<int32>(Session) + 1) % 3);
+	ApplyDifficulty();
+	SaveProgress();
+}
+
+void ADriveGameMode::RecoverVehicle()
+{
+	if (bInMenu || bMissionOver) return;
+	ADriveVehicle* V = Cast<ADriveVehicle>(UGameplayStatics::GetPlayerPawn(this, 0));
+	if (!V) return;
+	const float Fuel = V->FuelPercent;
+	const int32 Previous = NextCheckpoint - 1;
+	const FVector Loc = CheckpointLocations.IsValidIndex(Previous) ? CheckpointLocations[Previous] + FVector(0.f,0.f,110.f) : StartLoc;
+	const FRotator Rot = CheckpointRotations.IsValidIndex(Previous) ? CheckpointRotations[Previous] : StartRot;
+	V->ResetForStart(Loc, Rot);
+	V->FuelPercent = IsTour() ? 100.f : Fuel;
+	PreviousLocation = Loc;
+	PreviousYaw = Rot.Yaw;
+	StopHold = 0.f;
+	if (!IsTour() && !IsSchool())
+	{
+		TimeLeft = FMath::Max(0.f, TimeLeft - 10.f);
+		Score = FMath::Max(0, Score - 100);
+	}
+	ResetPlayerControls(this);
+	Coach(IsTour() || IsSchool() ? TEXT("Car recovered. Check the route and set off gently.") : TEXT("Recovered: 10 seconds and 100 route points deducted."), 5.f);
 }
 
 void ADriveGameMode::ChangeCity()
@@ -219,7 +265,7 @@ void ADriveGameMode::ChangeCity()
 void ADriveGameMode::StartNextLevel()
 {
 	if (!CanStartNextLevel()) return;
-	++LevelIndex;
+	if (IsSchool()) ++SchoolIndex; else ++LevelIndex;
 	StartMission();
 }
 
@@ -227,6 +273,7 @@ void ADriveGameMode::StartMission()
 {
 	if (!IsCarUnlocked(CarIndex) || !IsLevelUnlocked()) return;
 	if (!Cast<ADriveVehicle>(UGameplayStatics::GetPlayerPawn(this, 0))) return;
+	if (!IsTour() && RegisteredCheckpoints <= 0) { Coach(TEXT("The road route is still loading.")); return; }
 	bInMenu = false;
 	SaveProgress();
 	RestartMission();
@@ -248,8 +295,22 @@ void ADriveGameMode::RestartMission()
 	bLastMissionSuccess = false;
 	EarnedStars = 0;
 	EndMessage.Reset();
+	ResultFeedback.Reset();
+	SpeedingSeconds = 0.f;
+	HarshEvents = 0;
+	DistanceMeters = 0.f;
+	StopHold = 0.f;
+	ElapsedTime = 0.f;
+	HarshCooldown = 2.f;
 	ApplyDifficulty();
 	TeleportPlayerToStart();
+	if (ADriveVehicle* V = Cast<ADriveVehicle>(UGameplayStatics::GetPlayerPawn(this, 0)))
+	{
+		V->FuelPercent = IsTour() ? 100.f : Level().StartingFuel;
+		PreviousLocation = V->GetActorLocation();
+		PreviousYaw = V->GetActorRotation().Yaw;
+	}
+	Coach(IsTour() ? TEXT("Explore freely: no timer, no fuel limit. RECOVER returns you to the route start.") : Level().Instruction, 10.f);
 	ResetPlayerControls(this);
 }
 
@@ -257,7 +318,8 @@ void ADriveGameMode::RestartMission()
 
 void ADriveGameMode::RecomputeTotals()
 {
-	const int32 ExtraCheckpoints = FMath::Max(0, (Diff().Checkpoints - 3) / 2);
+	if (IsTour()) { TotalCheckpoints = 0; return; }
+	const int32 ExtraCheckpoints = IsSchool() ? 0 : FMath::Max(0, (Diff().Checkpoints - 3) / 2);
 	TotalCheckpoints = FMath::Min(RegisteredCheckpoints, FMath::Min(8, Level().Checkpoints + ExtraCheckpoints));
 }
 
@@ -265,41 +327,111 @@ void ADriveGameMode::ApplyDifficulty()
 {
 	const FDifficultySpec& D = Diff();
 	RecomputeTotals();
-	StartingTime = SecondsPerCheckpoint * FMath::Max(1, TotalCheckpoints) * D.TimeMult * Level().TimeMult;
+	StartingTime = IsTour() ? 0.f : SecondsPerCheckpoint * FMath::Max(1, TotalCheckpoints) * D.TimeMult * Level().TimeMult;
 	TimeLeft = StartingTime;
 
 	// The world is built once at maximum density; difficulty just switches things on and off.
 	for (TActorIterator<APotholeActor> It(GetWorld()); It; ++It)
 	{
-		It->SetDifficultyActive(It->Rank < FMath::Clamp(D.PotholeFraction * Level().PotholeMult, 0.f, 1.f));
+		It->SetDifficultyActive(It->Rank < FMath::Clamp(D.PotholeFraction * (IsTour() ? 0.6f : Level().PotholeMult), 0.f, 1.f));
 	}
 	for (TActorIterator<ATrafficVehicle> It(GetWorld()); It; ++It)
 	{
-		It->SetDifficultyActive(It->Rank < FMath::Clamp(D.TrafficFraction * Level().TrafficMult, 0.f, 1.f));
+		It->SetDifficultyActive(It->Rank < FMath::Clamp(D.TrafficFraction * (IsTour() ? 1.f : Level().TrafficMult), 0.f, 1.f));
 	}
 }
 
 // ------------------------------------------------------------------ mission
 
+void ADriveGameMode::Coach(const FString& Text, float Seconds)
+{
+	CoachMessage = Text;
+	CoachTime = Seconds;
+}
+
 void ADriveGameMode::Tick(float DT)
 {
 	Super::Tick(DT);
-	if (bInMenu || bMissionOver || TotalCheckpoints <= 0) return;
-
-	TimeLeft -= DT;
-	if (TimeLeft <= 0.f)
+	if (bInMenu || bMissionOver) return;
+	ADriveVehicle* V = Cast<ADriveVehicle>(UGameplayStatics::GetPlayerPawn(this, 0));
+	if (!V) return;
+	const float Step = FMath::Clamp(DT, 0.f, 0.25f);
+	ElapsedTime += Step;
+	CoachTime = FMath::Max(0.f, CoachTime - Step);
+	HarshCooldown = FMath::Max(0.f, HarshCooldown - Step);
+	const float Travel = FVector::Dist2D(V->GetActorLocation(), PreviousLocation);
+	if (Travel < 10000.f) DistanceMeters += Travel * .01f;
+	PreviousLocation = V->GetActorLocation();
+	if (IsTour()) { V->FuelPercent = 100.f; return; }
+	if (TotalCheckpoints <= 0) return;
+	const float Speed = V->GetSpeedKmh();
+	const float Accel = V->GetLongitudinalAccelerationMps2();
+	const float YawRate = Step > .001f ? FMath::Abs(FMath::FindDeltaAngleDegrees(PreviousYaw, static_cast<float>(V->GetActorRotation().Yaw))) / Step : 0.f;
+	PreviousYaw = V->GetActorRotation().Yaw;
+	if (ElapsedTime > 2.f && HarshCooldown <= 0.f && (FMath::Abs(Accel) > 8.5f || (Speed > 30.f && YawRate > 75.f)))
 	{
-		TimeLeft = 0.f;
-		EndMission(false);
+		++HarshEvents;
+		HarshCooldown = 2.f;
+		Coach(TEXT("Ease the pedals and steering. Brake before the corner, then turn."));
+		if (HarshEvents > Level().MaxHarshEvents) { EndMission(false,TEXT("RIDE TOO ROUGH")); return; }
+	}
+	if (Speed > Level().SpeedLimitKmh + 3.f)
+	{
+		SpeedingSeconds += Step;
+		if (CoachTime <= 0.f) Coach(FString::Printf(TEXT("Ease off: limit %.0f km/h. Watch your speeding allowance."),Level().SpeedLimitKmh));
+		if (SpeedingSeconds > Level().SpeedingAllowanceSeconds) { EndMission(false,TEXT("SPEED LIMIT EXCEEDED")); return; }
+	}
+	FVector Target; FRotator TargetRot;
+	if (GetNavigationTarget(Target,TargetRot) && FVector::Dist2D(V->GetActorLocation(),Target) > 450.f) StopHold = 0.f;
+	TimeLeft = FMath::Max(0.f,TimeLeft - Step);
+	if (V->FuelPercent <= 0.f) EndMission(false,TEXT("FUEL EMPTY"));
+	else if (TimeLeft <= 0.f) EndMission(false);
+}
+
+void ADriveGameMode::RegisterCheckpoint(int32 Index, const FVector& Loc, const FRotator& Rot)
+{
+	if (Index < 0 || Index >= 64) return;
+	RegisteredCheckpoints = FMath::Max(RegisteredCheckpoints, Index + 1);
+	CheckpointLocations.SetNum(RegisteredCheckpoints);
+	CheckpointRotations.SetNum(RegisteredCheckpoints);
+	CheckpointLocations[Index] = Loc;
+	CheckpointRotations[Index] = Rot;
+	RecomputeTotals();
+	if (bInMenu)
+	{
+		StartingTime = IsTour() ? 0.f : SecondsPerCheckpoint * FMath::Max(1, TotalCheckpoints) * Diff().TimeMult * Level().TimeMult;
+		TimeLeft = StartingTime;
 	}
 }
 
-void ADriveGameMode::RegisterCheckpoint(int32 Index)
+bool ADriveGameMode::IsCheckpointActive(int32 Index) const
 {
-	RegisteredCheckpoints = FMath::Max(RegisteredCheckpoints, Index + 1);
-	RecomputeTotals();
-	StartingTime = SecondsPerCheckpoint * FMath::Max(1, TotalCheckpoints) * Diff().TimeMult * Level().TimeMult;
-	TimeLeft = StartingTime;
+	return DriveMissionRules::ActiveCheckpoint(Index,NextCheckpoint,TotalCheckpoints,bInMenu,bMissionOver,IsTour());
+}
+
+void ADriveGameMode::EvaluateCheckpoint(int32 Index, float DT)
+{
+	if (!IsCheckpointActive(Index) || !CheckpointLocations.IsValidIndex(Index)) return;
+	const ADriveVehicle* V = Cast<ADriveVehicle>(UGameplayStatics::GetPlayerPawn(this,0));
+	if (!V) return;
+	const bool bParking = Level().Objective == EDriveObjective::Parking && Index == TotalCheckpoints - 1;
+	const bool bStop = bParking || Level().Objective == EDriveObjective::ControlledStop;
+	const float Distance = FVector::Dist2D(V->GetActorLocation(),CheckpointLocations[Index]);
+	const FVector BayPosition = CheckpointRotations[Index].UnrotateVector(V->GetActorLocation()-CheckpointLocations[Index]);
+	if ((bParking && !DriveMissionRules::InParkingBay(BayPosition.X,BayPosition.Y)) || (!bParking && Distance > 450.f)) { StopHold = 0.f; return; }
+	if (bStop)
+	{
+		const float HeadingError = FMath::Abs(FMath::FindDeltaAngleDegrees(V->GetActorRotation().Yaw,CheckpointRotations[Index].Yaw));
+		if (!DriveMissionRules::ValidStop(V->GetSpeedKmh(),HeadingError,bParking))
+		{
+			StopHold = 0.f;
+			if (CoachTime <= 0.f) Coach(bParking && HeadingError > 25.f ? TEXT("Align with the bay arrow. Use reverse to straighten the car.") : TEXT("Brake gently to a full stop inside the marker."));
+			return;
+		}
+		StopHold = DriveMissionRules::AccumulateHold(StopHold,DT,true);
+		if (!DriveMissionRules::HoldComplete(StopHold,Level().StopHoldSeconds)) return;
+	}
+	CheckpointReached(Index);
 }
 
 void ADriveGameMode::CheckpointReached(int32 Index)
@@ -307,9 +439,13 @@ void ADriveGameMode::CheckpointReached(int32 Index)
 	if (bInMenu || bMissionOver || Index != NextCheckpoint || Index >= TotalCheckpoints) return;
 
 	Score += 100;
+	StopHold = 0.f;
 	++NextCheckpoint;
+	Coach(Level().Objective == EDriveObjective::ControlledStop ? TEXT("Delivery complete. Check traffic before moving off.") : TEXT("Checkpoint reached. Follow the next amber marker."));
 	if (NextCheckpoint >= TotalCheckpoints)
 	{
+		const ADriveVehicle* V = Cast<ADriveVehicle>(UGameplayStatics::GetPlayerPawn(this,0));
+		if (V && V->FuelPercent < Level().RequiredFuel) { EndMission(false,TEXT("FUEL RESERVE MISSED")); return; }
 		Score += FMath::RoundToInt(TimeLeft);
 		EndMission(true);
 	}
@@ -319,6 +455,8 @@ void ADriveGameMode::ReportCollision()
 {
 	if (bInMenu || bMissionOver) return;
 	++Crashes;
+	Coach(TEXT("Collision: slow down, leave space and look through the next corner."));
+	if (IsTour()) return;
 	Score = FMath::Max(0, Score - Diff().CrashPenalty);
 	if (Crashes >= Level().MaxCrashes) EndMission(false, TEXT("DAMAGE LIMIT"));
 }
@@ -329,17 +467,23 @@ void ADriveGameMode::EndMission(bool bSuccess, const TCHAR* FailureReason)
 	bMissionOver = true;
 	bLastMissionSuccess = bSuccess;
 	ResetPlayerControls(this);
-	EarnedStars = bSuccess ? 1 : 0;
-	if (bSuccess && Crashes <= 1) ++EarnedStars;
-	if (bSuccess && Crashes == 0 && TimeLeft >= StartingTime * 0.2f) ++EarnedStars;
+	EarnedStars = DriveMissionRules::Stars(bSuccess,Crashes,SpeedingSeconds,HarshEvents,TimeLeft,StartingTime);
 	if (bSuccess)
 	{
-		LevelStars[LevelIndex] = FMath::Max(LevelStars[LevelIndex], EarnedStars);
-		HighestUnlockedLevel = FMath::Max(HighestUnlockedLevel, FMath::Min(LevelIndex + 1, DriveLevels::NumLevels() - 1));
+		if (IsSchool())
+		{
+			SchoolStars[SchoolIndex] = FMath::Max(SchoolStars[SchoolIndex],EarnedStars);
+			HighestUnlockedLesson = FMath::Max(HighestUnlockedLesson,FMath::Min(SchoolIndex+1,DriveLevels::NumLessons()-1));
+		}
+		else
+		{
+			LevelStars[LevelIndex] = FMath::Max(LevelStars[LevelIndex], EarnedStars);
+			HighestUnlockedLevel = FMath::Max(HighestUnlockedLevel, FMath::Min(LevelIndex + 1, DriveLevels::NumLevels() - 1));
+		}
 	}
 
 	const FDifficultySpec& D = Diff();
-	const int32 Final = FMath::RoundToInt(Score * D.ScoreMult * Level().ScoreMult);
+	const int32 Final = bSuccess ? FMath::RoundToInt(Score * D.ScoreMult * Level().ScoreMult) : 0;
 	const int32 Before = TotalScore;
 	TotalScore = static_cast<int32>(FMath::Min(static_cast<int64>(MAX_int32), static_cast<int64>(TotalScore) + Final));
 
@@ -359,8 +503,10 @@ void ADriveGameMode::EndMission(bool bSuccess, const TCHAR* FailureReason)
 
 	const FString Unlocked = UnlockedCars > 0 ? FString::Printf(TEXT("   %d CARS UNLOCKED"), UnlockedCars) : FString();
 	EndMessage = FString::Printf(TEXT("%s   %d pts   %d/3 STARS%s%s"),
-		bSuccess ? TEXT("LEVEL COMPLETE") : FailureReason, Final, EarnedStars,
+		bSuccess ? (IsSchool() ? TEXT("LESSON PASSED") : TEXT("CHALLENGE COMPLETE")) : FailureReason, Final, EarnedStars,
 		bNewBest ? TEXT("   NEW BEST") : TEXT(""), *Unlocked);
+	ResultFeedback = FString::Printf(TEXT("%.0f m driven | %d collisions | %.1f s speeding | %d harsh manoeuvres"),DistanceMeters,Crashes,SpeedingSeconds,HarshEvents);
+	CoachMessage = bSuccess ? TEXT("Three stars: no collisions, almost no speeding, smooth inputs and time to spare.") : Level().Instruction;
 	SaveProgress();
 }
 
@@ -380,10 +526,93 @@ void ADriveGameMode::TeleportPlayerToStart()
 	}
 }
 
+int32 ADriveGameMode::ChallengeStars() const
+{
+	const TArray<int32>& Stars = IsSchool() ? SchoolStars : LevelStars;
+	return Stars.IsValidIndex(SelectedChallenge()) ? Stars[SelectedChallenge()] : 0;
+}
+
+bool ADriveGameMode::GetNavigationTarget(FVector& OutPosition, FRotator& OutRotation) const
+{
+	if (IsTour() || !CheckpointLocations.IsValidIndex(NextCheckpoint) || NextCheckpoint >= TotalCheckpoints) return false;
+	OutPosition = CheckpointLocations[NextCheckpoint];
+	OutRotation = CheckpointRotations[NextCheckpoint];
+	return true;
+}
+
+bool ADriveGameMode::GetRouteGuidanceTarget(FVector& OutPosition) const
+{
+	FRotator Rotation;
+	if (!GetNavigationTarget(OutPosition,Rotation)) return false;
+	const APawn* Car = UGameplayStatics::GetPlayerPawn(this,0);
+	if (!Car || NavigationRoute.Num()<2) return true;
+	// Project onto the connected route, then aim a short distance ahead on it.
+	// Restrict the search to this checkpoint leg so nearby parallel roads do not
+	// send the driver across blocks or skip forward to a later part of the route.
+	auto Project = [&](const FVector& Point, float From, float To)
+	{
+		float Along=0.f, BestAlong=From, BestDistance=MAX_flt;
+		for (int32 i=1;i<NavigationRoute.Num();++i)
+		{
+			const FVector A=NavigationRoute[i-1], B=NavigationRoute[i];
+			const float Length=FVector::Dist2D(A,B);
+			if (Length>.1f && Along+Length>=From && Along<=To)
+			{
+				const FVector FlatDelta(B.X-A.X,B.Y-A.Y,0.f);
+				const FVector FlatPoint(Point.X-A.X,Point.Y-A.Y,0.f);
+				const float Low=FMath::Clamp((From-Along)/Length,0.f,1.f), High=FMath::Clamp((To-Along)/Length,0.f,1.f);
+				const float T=FMath::Clamp(static_cast<float>(FVector::DotProduct(FlatPoint,FlatDelta)/(Length*Length)),Low,High);
+				const float Distance=FVector::DistSquared2D(Point,FMath::Lerp(A,B,T));
+				if (Distance<BestDistance) { BestDistance=Distance; BestAlong=Along+T*Length; }
+			}
+			Along+=Length;
+		}
+		return BestAlong;
+	};
+	const float End=Project(OutPosition,0.f,MAX_flt);
+	const float Begin=NextCheckpoint>0 ? Project(CheckpointLocations[NextCheckpoint-1],0.f,End) : 0.f;
+	const float Current=Project(Car->GetActorLocation(),FMath::Max(0.f,Begin-1000.f),End);
+	const float Guidance=FMath::Min(End,Current+1000.f);
+	float Along=0.f;
+	for (int32 i=1;i<NavigationRoute.Num();++i)
+	{
+		const float Length=FVector::Dist2D(NavigationRoute[i-1],NavigationRoute[i]);
+		if (Length>.1f && Along+Length>=Guidance)
+		{
+			if (End-Current>1200.f) OutPosition=FMath::Lerp(NavigationRoute[i-1],NavigationRoute[i],FMath::Clamp((Guidance-Along)/Length,0.f,1.f));
+			return true;
+		}
+		Along+=Length;
+	}
+	return true;
+}
+
+FString ADriveGameMode::GetNavigationStatus() const
+{
+	FVector Target; FRotator Rotation;
+	const APawn* V = UGameplayStatics::GetPlayerPawn(this,0);
+	if (!V || !GetNavigationTarget(Target,Rotation)) return IsTour() ? TEXT("Explore any connected road. RECOVER resets your car.") : FString();
+	const float MarkerDistance = FVector::Dist2D(Target,V->GetActorLocation());
+	FVector Guidance=Target;
+	GetRouteGuidanceTarget(Guidance);
+	const FVector Delta = Guidance - V->GetActorLocation();
+	const float Bearing = FMath::FindDeltaAngleDegrees(V->GetActorRotation().Yaw,Delta.Rotation().Yaw);
+	const TCHAR* Direction = FMath::Abs(Bearing) < 25.f ? TEXT("AHEAD") : (FMath::Abs(Bearing) > 145.f ? TEXT("BEHIND") : (Bearing > 0.f ? TEXT("RIGHT") : TEXT("LEFT")));
+	return FString::Printf(TEXT("FOLLOW ROAD %s  |  %.0f m to marker  %d / %d"),Direction,MarkerDistance*.01f,NextCheckpoint+1,TotalCheckpoints);
+}
+
+FString ADriveGameMode::GetObjectiveText() const
+{
+	if (IsTour()) return TEXT("UNTIMED TOUR | Unlimited fuel | Enjoy the city | TAB / MENU to change car or mode");
+	if (StopHold > 0.f) return FString::Printf(TEXT("Hold still... %.1f / %.1f seconds"),StopHold,Level().StopHoldSeconds);
+	if (CoachTime > 0.f && !CoachMessage.IsEmpty()) return CoachMessage;
+	return Level().Instruction;
+}
+
 FString ADriveGameMode::GetMissionStatus() const
 {
-	if (TotalCheckpoints <= 0) return TEXT("Free drive");
+	if (IsTour()) return FString::Printf(TEXT("%s TOUR | %.2f km explored | %s"),CityName(),DistanceMeters*.001f,Diff().Name);
 	const int32 T = FMath::CeilToInt(TimeLeft);
-	return FString::Printf(TEXT("LEVEL %d   %s   CP %d/%d   %d:%02d   SCORE %d   CRASH %d/%d"),
-		LevelIndex + 1, Diff().Name, FMath::Min(NextCheckpoint + 1, TotalCheckpoints), TotalCheckpoints, T / 60, T % 60, Score, Crashes, Level().MaxCrashes);
+	return FString::Printf(TEXT("%s %02d | %d:%02d | LIMIT %.0f | SPEEDING %.1f/%.0f s | CRASH %d/%d | HARSH %d/%d"),
+		IsSchool()?TEXT("LESSON"):TEXT("CAREER"),SelectedChallenge()+1,T/60,T%60,Level().SpeedLimitKmh,SpeedingSeconds,Level().SpeedingAllowanceSeconds,Crashes,Level().MaxCrashes,HarshEvents,Level().MaxHarshEvents);
 }

@@ -1,0 +1,14 @@
+{
+  "Color": {
+    "file": "T_FacadeBays_Color.jpg",
+    "sha256": "8b2b9b26d495aa50b84a6f9865f1d81fc2d39ecb158703c3bc367c9d3e460eaa"
+  },
+  "Normal": {
+    "file": "T_FacadeBays_Normal.jpg",
+    "sha256": "e94be2733c656bd1960809843b7159dd5544f0ae2a6947441bbc2cfe28399bbc"
+  },
+  "Rough": {
+    "file": "T_FacadeBays_Rough.jpg",
+    "sha256": "a393549748b3c133753699f418a62314f62eefd4af418c905515ae35229c5f14"
+  }
+}

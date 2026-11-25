@@ -1,4 +1,6 @@
 #include "RoadNetworkActor.h"
+#include "DriveRoadGraph.h"
+#include "CityBlocks.h"
 #include "PotholeActor.h"
 #include "RailwayCrossing.h"
 #include "MissionCheckpoint.h"
@@ -17,7 +19,7 @@
 #include "Misc/Paths.h"
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/Pawn.h"
-#include "Components/SkeletalMeshComponent.h"
+#include "Components/BoxComponent.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
 
@@ -42,6 +44,7 @@ namespace
 	{
 		TArray<FVector2D> P;
 		float W;
+		int32 OneWay = 0;
 	};
 
 	float PotholeFactorFor(const FString& H)
@@ -77,9 +80,9 @@ namespace
 		for (int32 k = 0; k < 4; ++k)
 		{
 			C.N.Add(FVector::UpVector);
-			C.UV.Add(FVector2D(C.V[b + k].X / 400.0, C.V[b + k].Y / 400.0));
+			C.UV.Add(FVector2D(C.V[b + k].X / 300.0, C.V[b + k].Y / 300.0));
 		}
-		C.T.Append({ b + 0, b + 2, b + 1,   b + 1, b + 2, b + 3 });
+		C.T.Append({ b, b + 1, b + 2,   b + 1, b + 3, b + 2 });
 	}
 }
 
@@ -89,8 +92,12 @@ ARoadNetworkActor::ARoadNetworkActor()
 
 	Mesh = CreateDefaultSubobject<UProceduralMeshComponent>(TEXT("RoadMesh"));
 	RootComponent = Mesh;
-	Mesh->bUseAsyncCooking = true;
-	Mesh->SetCollisionProfileName(TEXT("BlockAll"));
+	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    // Both districts are flat. A single primitive supports wheel traces immediately on Android.
+    GroundCollision = CreateDefaultSubobject<UBoxComponent>(TEXT("Drivable ground"));
+    GroundCollision->SetupAttachment(Mesh);
+    GroundCollision->SetCollisionProfileName(TEXT("BlockAll"));
+    GroundCollision->SetGenerateOverlapEvents(false);
 	Mesh->SetCastShadow(false); // roads never need to cast shadows
 
 	Buildings = CreateDefaultSubobject<UHierarchicalInstancedStaticMeshComponent>(TEXT("Buildings"));
@@ -102,6 +109,22 @@ ARoadNetworkActor::ARoadNetworkActor()
 	BarrierMarkers->SetStaticMesh(DriveShapes::Cylinder());
 	BarrierMarkers->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	BarrierMarkers->SetCastShadow(false);
+
+	TreeTrunks = CreateDefaultSubobject<UHierarchicalInstancedStaticMeshComponent>(TEXT("TreeTrunks"));
+	TreeCanopies = CreateDefaultSubobject<UHierarchicalInstancedStaticMeshComponent>(TEXT("TreeCanopies"));
+	LampPoles = CreateDefaultSubobject<UHierarchicalInstancedStaticMeshComponent>(TEXT("StreetLampPoles"));
+	LampHeads = CreateDefaultSubobject<UHierarchicalInstancedStaticMeshComponent>(TEXT("StreetLampHeads"));
+	FacadeWindows = CreateDefaultSubobject<UHierarchicalInstancedStaticMeshComponent>(TEXT("FallbackFacadeWindows"));
+	RoofDetails = CreateDefaultSubobject<UHierarchicalInstancedStaticMeshComponent>(TEXT("FallbackRoofDetails"));
+	for (UHierarchicalInstancedStaticMeshComponent* Component : {TreeTrunks.Get(), TreeCanopies.Get(), LampPoles.Get(), LampHeads.Get(), FacadeWindows.Get(), RoofDetails.Get()})
+	{
+		Component->SetupAttachment(Mesh);
+		Component->SetStaticMesh(DriveShapes::Cube());
+		Component->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Component->SetCastShadow(false);
+	}
+	TreeCanopies->SetStaticMesh(DriveShapes::Sphere());
+	TreeTrunks->SetStaticMesh(DriveShapes::Cylinder());
 
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> Mat(TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
 	BaseMaterial = Mat.Object;
@@ -115,7 +138,9 @@ void ARoadNetworkActor::BeginPlay()
 	// Phone budget: smaller world, fewer actors.
 	MaxRadiusCm = FMath::Min(MaxRadiusCm, 150000.f);
 	MaxPotholes = FMath::Min(MaxPotholes, 180);
-	MaxBuildings = FMath::Min(MaxBuildings, 900);
+	MaxBuildings = FMath::Min(MaxBuildings, 320);
+	MaxTrees = FMath::Min(MaxTrees, 140);
+	MaxStreetLamps = FMath::Min(MaxStreetLamps, 80);
 	TrafficCount = FMath::Min(TrafficCount, 16);
 #endif
 
@@ -150,11 +175,17 @@ bool ARoadNetworkActor::Build()
 	}
 
 	const FVector O = GetActorLocation();
+	// Source extracts have an explicit radius. Avoid generating scenery outside
+	// their bounds, where no roads have been downloaded.
+	double ExtractRadius = 0.0;
+	if (Root->TryGetNumberField(TEXT("radius_m"), ExtractRadius) && ExtractRadius > 0.0)
+		MaxRadiusCm = FMath::Min(MaxRadiusCm, static_cast<float>(ExtractRadius * 100.0));
 	const double R2 = static_cast<double>(MaxRadiusCm) * MaxRadiusCm;
 	FRandomStream Rand(PotholeSeed);
 
 	TArray<FSeg> Segs;
 	TArray<FWay> Ways;
+	DriveRoad::Graph RoadGraph;
 	// Sections of one procedural component do not have independent culling bounds.
 	// Batch by material rather than paying a draw call for every grid cell.
 	FCellMesh RoadGeometry;
@@ -169,19 +200,43 @@ bool ARoadNetworkActor::Build()
 			const TSharedPtr<FJsonObject> Road = RV->AsObject();
 			if (!Road.IsValid()) continue;
 
-			const float W = static_cast<float>(Road->GetNumberField(TEXT("w")) * 100.0);
-			const float PF = PotholeFactorFor(Road->GetStringField(TEXT("h")));
+			double WidthMetres = 0.0;
+			FString Highway;
+			if (!Road->TryGetNumberField(TEXT("w"), WidthMetres) || !FMath::IsFinite(WidthMetres)
+				|| WidthMetres < 3.0 || WidthMetres > 50.0 || !Road->TryGetStringField(TEXT("h"), Highway)) continue;
+			const float W = static_cast<float>(WidthMetres * 100.0);
+			const float PF = PotholeFactorFor(Highway);
+			int32 OneWay = 0;
+			FString StreetName;
+			const TSharedPtr<FJsonObject>* Tags = nullptr;
+			if (Road->TryGetObjectField(TEXT("tags"), Tags) && Tags && Tags->IsValid())
+			{
+				if (!(*Tags)->TryGetStringField(TEXT("name:en"), StreetName)) (*Tags)->TryGetStringField(TEXT("name"), StreetName);
+				FString Value;
+				if ((*Tags)->TryGetStringField(TEXT("oneway"), Value))
+				{
+					if (Value == TEXT("yes") || Value == TEXT("1") || Value == TEXT("true")) OneWay = 1;
+					else if (Value == TEXT("-1")) OneWay = -1;
+				}
+			}
 			const TArray<TSharedPtr<FJsonValue>>* Pts = nullptr;
 			if (!Road->TryGetArrayField(TEXT("p"), Pts) || Pts->Num() < 2) continue;
 
 			FWay Way;
 			Way.W = W;
+			Way.OneWay = OneWay;
 			Way.P.Reserve(Pts->Num());
+			bool bValidWay = true;
 			for (const TSharedPtr<FJsonValue>& PV : *Pts)
 			{
-				const TArray<TSharedPtr<FJsonValue>>& XY = PV->AsArray();
-				if (XY.Num() >= 2) Way.P.Add(FVector2D(XY[0]->AsNumber(), XY[1]->AsNumber()));
+				const TArray<TSharedPtr<FJsonValue>>* XY = nullptr;
+				if (!PV->TryGetArray(XY) || !XY || XY->Num() < 2) { bValidWay = false; break; }
+				double X = 0.0, Y = 0.0;
+				if ((*XY)[0]->TryGetNumber(X) && (*XY)[1]->TryGetNumber(Y) && FMath::IsFinite(X) && FMath::IsFinite(Y))
+					Way.P.Add(FVector2D(X, Y));
+				else { bValidWay = false; break; }
 			}
+			if (!bValidWay || Way.P.Num() < 2) continue;
 			const TArray<FVector2D>& P = Way.P;
 
 			bool bAny = false;
@@ -189,7 +244,7 @@ bool ARoadNetworkActor::Build()
 			{
 				const FVector2D A = P[i], B = P[i + 1];
 				const FVector2D Mid = (A + B) * 0.5;
-				if (Mid.SizeSquared() > R2) continue;
+				if (Mid.SizeSquared() > R2 || A.SizeSquared() > FMath::Square(MaxRadiusCm + 1.0) || B.SizeSquared() > FMath::Square(MaxRadiusCm + 1.0)) continue;
 
 				const FVector2D D = (B - A);
 				const double Len = D.Size();
@@ -198,6 +253,8 @@ bool ARoadNetworkActor::Build()
 				bAny = true;
 
 				Segs.Add({ A, B, W, PF });
+				Streets.Add({ A, B, W * .5f, FName(*StreetName) });
+				RoadGraph.AddSegment({A.X, A.Y}, {B.X, B.Y}, W, OneWay);
 
 				// One quad per segment, extended a little at both ends to hide gaps at bends and junctions.
 				const double Ext = W * 0.35;
@@ -225,13 +282,15 @@ bool ARoadNetworkActor::Build()
 		return false;
 	}
 
-	// ---------- materials ----------
+	// ---------- optional imported PBR materials; primitive tint is a safe fallback ----------
+	UMaterialInterface* Asphalt = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Environment/M_Asphalt.M_Asphalt"), nullptr, LOAD_NoWarn);
+	UMaterialInterface* Ground = LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Environment/M_Ground.M_Ground"), nullptr, LOAD_NoWarn);
 	if (BaseMaterial)
 	{
-		RoadMat = UMaterialInstanceDynamic::Create(BaseMaterial, this);
+		RoadMat = UMaterialInstanceDynamic::Create(Asphalt ? Asphalt : BaseMaterial, this);
 		RoadMat->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.045f, 0.045f, 0.05f));
-		GroundMat = UMaterialInstanceDynamic::Create(BaseMaterial, this);
-		GroundMat->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.28f, 0.24f, 0.16f));
+		GroundMat = UMaterialInstanceDynamic::Create(Ground ? Ground : BaseMaterial, this);
+		GroundMat->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.24f, 0.29f, 0.19f));
 		MarkMat = UMaterialInstanceDynamic::Create(BaseMaterial, this);
 		MarkMat->SetVectorParameterValue(TEXT("Color"), FLinearColor(0.85f, 0.85f, 0.8f));
 	}
@@ -239,15 +298,17 @@ bool ARoadNetworkActor::Build()
 	// ---------- ground (section 0), roads (1), markings (2) ----------
 	{
 		const double G = static_cast<double>(MaxRadiusCm) * 1.3;
+        GroundCollision->SetBoxExtent(FVector(G,G,50));
+        GroundCollision->SetRelativeLocation(FVector(0,0,RoadZ-50.));
 		const TArray<FVector> V = { FVector(-G, -G, 0.0), FVector(G, -G, 0.0), FVector(-G, G, 0.0), FVector(G, G, 0.0) };
-		const TArray<int32> T = { 0, 1, 2,   2, 1, 3 };
+		const TArray<int32> T = { 0, 2, 1,   2, 3, 1 };
 		const TArray<FVector> N = { FVector::UpVector, FVector::UpVector, FVector::UpVector, FVector::UpVector };
-		const TArray<FVector2D> UV = { FVector2D(-G / 1000.0, -G / 1000.0), FVector2D(G / 1000.0, -G / 1000.0), FVector2D(-G / 1000.0, G / 1000.0), FVector2D(G / 1000.0, G / 1000.0) };
-		Mesh->CreateMeshSection(0, V, T, N, UV, TArray<FColor>(), TArray<FProcMeshTangent>(), true);
+		const TArray<FVector2D> UV = { FVector2D(-G / 300.0, -G / 300.0), FVector2D(G / 300.0, -G / 300.0), FVector2D(-G / 300.0, G / 300.0), FVector2D(G / 300.0, G / 300.0) };
+		Mesh->CreateMeshSection(0, V, T, N, UV, TArray<FColor>(), TArray<FProcMeshTangent>(), false);
 		if (GroundMat) Mesh->SetMaterial(0, GroundMat);
 	}
 	Mesh->CreateMeshSection(1, RoadGeometry.V, RoadGeometry.T, RoadGeometry.N, RoadGeometry.UV,
-		TArray<FColor>(), TArray<FProcMeshTangent>(), true);
+		TArray<FColor>(), TArray<FProcMeshTangent>(), false);
 	if (RoadMat) Mesh->SetMaterial(1, RoadMat);
 	if (MarkGeometry.V.Num() > 0)
 	{
@@ -341,8 +402,13 @@ bool ARoadNetworkActor::Build()
 	}
 	DriveShapes::Tint(BarrierMarkers, FLinearColor(0.9f, 0.4f, 0.04f));
 
-	// ---------- roadside buildings (boxes) kept clear of every road and crossing ----------
-	if (MaxBuildings > 0)
+	// Actual OSM footprint blocks take precedence over the synthetic fallback.
+	bool bHasMappedBuildings = false;
+	CityBlocks = GetWorld()->SpawnActor<ACityBlocks>(ACityBlocks::StaticClass(), O, FRotator::ZeroRotator);
+	if (CityBlocks) bHasMappedBuildings = CityBlocks->InitCity(DataFile);
+
+	// ---------- streetscape, plus synthetic blocks only when footprint import failed ----------
+	if (MaxBuildings > 0 || MaxTrees > 0 || MaxStreetLamps > 0)
 	{
 		const double GC = 5000.0;
 		auto CellOf = [GC](const FVector2D& P) { return FIntPoint(FMath::FloorToInt(P.X / GC), FMath::FloorToInt(P.Y / GC)); };
@@ -383,9 +449,10 @@ bool ARoadNetworkActor::Build()
 
 		TMap<FIntPoint, TArray<FVector>> BGrid; // x, y, half-size of placed buildings
 		int32 Placed = 0;
+		const int32 BuildingBudget = bHasMappedBuildings ? 0 : MaxBuildings;
 		for (const FSeg& S : Segs)
 		{
-			if (Placed >= MaxBuildings) break;
+			if (Placed >= BuildingBudget) break;
 			const FVector2D D = S.B - S.A;
 			const double Len = D.Size();
 			const FVector2D Dir = D / Len;
@@ -395,7 +462,7 @@ bool ARoadNetworkActor::Build()
 			int32 N = FMath::FloorToInt(Len / 2200.0);
 			if (Rand.FRand() < Len / 2200.0 - N) ++N;
 
-			for (int32 i = 0; i < N && Placed < MaxBuildings; ++i)
+			for (int32 i = 0; i < N && Placed < BuildingBudget; ++i)
 			{
 				const float Half = Rand.FRandRange(400.f, 900.f);
 				const float Height = Rand.FRandRange(600.f, 3200.f);
@@ -430,9 +497,62 @@ bool ARoadNetworkActor::Build()
 				BGrid.FindOrAdd(bc).Add(FVector(P.X, P.Y, Half));
 				Buildings->AddInstance(FTransform(FRotator(0.f, Yaw, 0.f), FVector(P.X, P.Y, Height * 0.5f),
 					FVector(Half * 2.f / 100.f, Half * 2.f / 100.f, Height / 100.f)));
+				RoofDetails->AddInstance(FTransform(FRotator(0.f, Yaw, 0.f), FVector(P.X, P.Y, Height + 15.f), FVector(Half * 2.06f / 100.f, Half * 2.06f / 100.f, 0.30f)));
+				// A few broad window bands are readable on mobile without thousands
+				// of individual actors/materials. Instances share one dark-glass draw.
+				for (float Floor = 300.f; Floor < Height - 100.f; Floor += 400.f)
+				{
+					for (float Face : {-1.f, 1.f})
+					{
+						const FVector2D WindowPos = P + L * (Face * (Half + 2.f));
+						FacadeWindows->AddInstance(FTransform(FRotator(0.f, Yaw, 0.f), FVector(WindowPos.X, WindowPos.Y, Floor), FVector(Half * 1.65f / 100.f, 0.04f, 1.6f)));
+					}
+				}
 				++Placed;
 			}
 		}
+		// Sparse synthetic roadside details. Clearance is checked against all
+		// nearby roads so props never obstruct a junction or drivable lane.
+		int32 TreesPlaced = 0, LampsPlaced = 0;
+		TSet<FIntPoint> PropCells;
+		for (const FSeg& S : Segs)
+		{
+			if (TreesPlaced >= MaxTrees && LampsPlaced >= MaxStreetLamps) break;
+			const FVector2D D = S.B - S.A;
+			const double Length = D.Size();
+			if (Length < 2500.0) continue;
+			const FVector2D L = LeftOf(D / Length);
+			for (double Along = 1200.0; Along < Length - 1200.0; Along += 3200.0)
+			{
+				const float Side = Rand.FRand() < 0.5f ? -1.f : 1.f;
+				const FVector2D P = S.A + D * (Along / Length) + L * (Side * (S.W * 0.5 + 380.0));
+				const FIntPoint PropCell(FMath::FloorToInt(P.X / 1500.0), FMath::FloorToInt(P.Y / 1500.0));
+				if (P.SizeSquared() > R2 || PropCells.Contains(PropCell) || TooCloseToRoad(P, 280.0)) continue;
+				bool bCrossing = false;
+				for (const FVector2D& C : CrossPts) if (FVector2D::DistSquared(P, C) < FMath::Square(3500.0)) { bCrossing = true; break; }
+				if (bCrossing) continue;
+				PropCells.Add(PropCell);
+				if (TreesPlaced < MaxTrees && (TreesPlaced <= LampsPlaced * 2 || LampsPlaced >= MaxStreetLamps))
+				{
+					TreeTrunks->AddInstance(FTransform(FRotator::ZeroRotator, FVector(P.X, P.Y, 180.f), FVector(0.35f, 0.35f, 3.6f)));
+					TreeCanopies->AddInstance(FTransform(FRotator::ZeroRotator, FVector(P.X, P.Y, 480.f), FVector(4.8f, 4.8f, 6.f)));
+					++TreesPlaced;
+				}
+				else if (LampsPlaced < MaxStreetLamps)
+				{
+					const float Yaw = FMath::RadiansToDegrees(FMath::Atan2(D.Y, D.X));
+					LampPoles->AddInstance(FTransform(FRotator::ZeroRotator, FVector(P.X, P.Y, 300.f), FVector(0.13f, 0.13f, 6.f)));
+					LampHeads->AddInstance(FTransform(FRotator(0.f, Yaw, 0.f), FVector(P.X, P.Y, 605.f), FVector(1.2f, 0.5f, 0.18f)));
+					++LampsPlaced;
+				}
+			}
+		}
+		DriveShapes::Tint(TreeTrunks, FLinearColor(0.24f, 0.16f, 0.09f));
+		DriveShapes::Tint(TreeCanopies, FLinearColor(0.16f, 0.30f, 0.10f));
+		DriveShapes::Tint(LampPoles, FLinearColor(0.16f, 0.20f, 0.22f));
+		DriveShapes::Tint(LampHeads, FLinearColor(0.95f, 0.85f, 0.58f));
+		DriveShapes::Tint(FacadeWindows, FLinearColor(0.10f, 0.19f, 0.24f));
+		DriveShapes::Tint(RoofDetails, FLinearColor(0.35f, 0.31f, 0.26f));
 		DriveShapes::Tint(Buildings, FLinearColor(0.55f, 0.48f, 0.38f));
 		UE_LOG(LogTemp, Log, TEXT("DelhiDrive: placed %d buildings"), Placed);
 	}
@@ -444,6 +564,9 @@ bool ARoadNetworkActor::Build()
 		{
 			const FWay& Wy = Ways[i];
 			if (Wy.W < 600.f || Wy.P.Num() < 2) continue;
+			bool bInside = true;
+			for (const FVector2D& Point : Wy.P) if (Point.SizeSquared() > FMath::Square(MaxRadiusCm + 1.0)) { bInside = false; break; }
+			if (!bInside) continue;
 			if (Wy.P[Wy.P.Num() / 2].SizeSquared() < FMath::Square(6000.0)) continue; // keep clear of the player start
 			if (FVector2D::Distance(Wy.P[0], Wy.P.Last()) < 4000.0) continue;
 			Eligible.Add(i);
@@ -461,7 +584,7 @@ bool ARoadNetworkActor::Build()
 			const FTransform T(FRotator::ZeroRotator, FVector(WP[0].X, WP[0].Y, O.Z + RoadZ + 100.f));
 			if (ATrafficVehicle* TV = GetWorld()->SpawnActorDeferred<ATrafficVehicle>(ATrafficVehicle::StaticClass(), T, nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn))
 			{
-				TV->InitPath(WP, Wy.W, O.Z + RoadZ + Wy.W * 0.002f, Kind);
+				TV->InitPath(WP, Wy.W, O.Z + RoadZ + Wy.W * 0.002f, Kind, Wy.OneWay);
 				TV->Rank = Rand.FRand();
 				TV->FinishSpawning(T);
 				++NumTraffic;
@@ -469,58 +592,51 @@ bool ARoadNetworkActor::Build()
 		}
 	}
 
-	// ---------- demo mission: chained checkpoints 400 m - 1 km apart ----------
+	// ---------- ordered route on one connected OSM road graph ----------
+	const DriveRoad::Route Route = RoadGraph.MakeRoute(FMath::Clamp(DemoCheckpoints, 8, 16), static_cast<unsigned>(PotholeSeed));
+	NavigationPath.Reset();
+	if (Route.Valid())
 	{
-		FVector2D Prev(0.0, 0.0);
+		for (const DriveRoad::Point& P : Route.Path) NavigationPath.Add(O + FVector(P.X, P.Y, RoadZ + 25.f));
+		if (ADriveGameMode* GM = GetWorld()->GetAuthGameMode<ADriveGameMode>()) GM->SetRoutePath(NavigationPath);
 		int32 PlacedCheckpoints = 0;
-		for (int32 i = 0; i < DemoCheckpoints; ++i)
+		for (int32 Index = 0; Index < static_cast<int32>(Route.Checkpoints.size()); ++Index)
 		{
-			for (int32 Try = 0; Try < 800; ++Try)
+			const DriveRoad::Point& P = Route.Checkpoints[Index];
+			const float Yaw = FMath::RadiansToDegrees(Route.CheckpointYaw[Index]);
+			const float Width = static_cast<float>(Route.CheckpointWidths[Index]);
+			const FTransform Transform(FRotator(0.f, Yaw, 0.f), O + FVector(P.X, P.Y, RoadZ + Width * 0.002f + 8.f));
+			if (AMissionCheckpoint* CP = GetWorld()->SpawnActorDeferred<AMissionCheckpoint>(AMissionCheckpoint::StaticClass(), Transform, nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn))
 			{
-				const FSeg& S = Segs[Rand.RandRange(0, Segs.Num() - 1)];
-				if (S.W < 600.f) continue;
-				const FVector2D M = (S.A + S.B) * 0.5;
-				const double Dist = FVector2D::Distance(Prev, M);
-				if (Dist < 40000.0 || Dist > 100000.0 || M.SizeSquared() > R2 * 0.5) continue;
-
-				const FTransform T(FRotator::ZeroRotator, O + FVector(M.X, M.Y, RoadZ + 5.f));
-				if (AMissionCheckpoint* CP = GetWorld()->SpawnActorDeferred<AMissionCheckpoint>(AMissionCheckpoint::StaticClass(), T, nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn))
+				CP->Index = PlacedCheckpoints;
+				CP->FinishSpawning(Transform);
+				++PlacedCheckpoints;
+			}
+		}
+		if (bPlacePlayerOnRoad)
+		{
+			const DriveRoad::Point& A = Route.Path[0];
+			const DriveRoad::Point& B = Route.Path[1];
+			const FVector2D Direction = FVector2D(B.X - A.X, B.Y - A.Y).GetSafeNormal();
+			const float Width = static_cast<float>(Route.Widths[0]);
+			const double StartAdvance = FMath::Min(150.0, FMath::Sqrt(FMath::Square(B.X - A.X) + FMath::Square(B.Y - A.Y)) * 0.25);
+			const FVector2D Spot = FVector2D(A.X, A.Y) + Direction * StartAdvance + LeftOf(Direction) * FMath::Min(Width * 0.25f, 220.f);
+			const FVector Location = O + FVector(Spot.X, Spot.Y, RoadZ + Width * 0.002f + 110.f);
+			const FRotator Rotation(0.f, FMath::RadiansToDegrees(FMath::Atan2(Direction.Y, Direction.X)), 0.f);
+			GetWorldTimerManager().SetTimer(PlaceHandle, FTimerDelegate::CreateWeakLambda(this, [this, Location, Rotation]()
+			{
+				if (ADriveGameMode* GM = GetWorld()->GetAuthGameMode<ADriveGameMode>())
 				{
-					CP->Index = PlacedCheckpoints;
-					CP->FinishSpawning(T);
-					++PlacedCheckpoints;
-					Prev = M;
+					GM->SetPlayerStart(Location, Rotation);
+					GM->TeleportPlayerToStart();
 				}
-				break;
-			}
+			}), 0.25f, false);
 		}
+		UE_LOG(LogTemp, Log, TEXT("DelhiDrive: connected route %.0f m, %d vertices, %d checkpoints"), Route.Length / 100.0, NavigationPath.Num(), static_cast<int32>(Route.Checkpoints.size()));
 	}
-
-	// ---------- put the player on the road nearest the origin, in the left lane ----------
-	if (bPlacePlayerOnRoad)
+	else
 	{
-		double Best = TNumericLimits<double>::Max();
-		FVector2D BestPt(0.0, 0.0), BestDir(1.0, 0.0);
-		float BestW = 600.f;
-		for (const FSeg& S : Segs)
-		{
-			if (S.W < 600.f) continue;
-			const FVector2D C = ClosestOnSeg(FVector2D::ZeroVector, S.A, S.B);
-			const double D2 = C.SizeSquared();
-			if (D2 < Best) { Best = D2; BestPt = C; BestDir = (S.B - S.A).GetSafeNormal(); BestW = S.W; }
-		}
-		const FVector2D Spot = BestPt + LeftOf(BestDir) * (BestW * 0.25f);
-		const FVector Loc = O + FVector(Spot.X, Spot.Y, RoadZ + 90.f);
-		const FRotator Rot(0.f, FMath::RadiansToDegrees(FMath::Atan2(BestDir.Y, BestDir.X)), 0.f);
-
-		GetWorldTimerManager().SetTimer(PlaceHandle, FTimerDelegate::CreateWeakLambda(this, [this, Loc, Rot]()
-		{
-			if (ADriveGameMode* GM = GetWorld()->GetAuthGameMode<ADriveGameMode>())
-			{
-				GM->SetPlayerStart(Loc, Rot);
-				GM->TeleportPlayerToStart();
-			}
-		}), 0.25f, false);
+		UE_LOG(LogTemp, Error, TEXT("DelhiDrive: no connected driveable route in %s; mission cannot start"), *DataFile);
 	}
 
 	// Everything is spawned at full density; the difficulty switches parts on/off.
@@ -539,4 +655,23 @@ void ARoadNetworkActor::ApplyQuality(int32 Level)
 	Buildings->SetCastShadow(Level >= 2);
 	Buildings->SetCullDistances(0, Level <= 0 ? 40000 : (Level == 1 ? 60000 : 90000));
 	BarrierMarkers->SetCullDistances(0, Level <= 0 ? 20000 : 40000);
+	for (UHierarchicalInstancedStaticMeshComponent* Component : {TreeTrunks.Get(), TreeCanopies.Get(), LampPoles.Get(), LampHeads.Get(), FacadeWindows.Get(), RoofDetails.Get()})
+		Component->SetCullDistances(0, Level <= 0 ? 25000 : (Level == 1 ? 45000 : 65000));
+}
+
+FString ARoadNetworkActor::StreetNameAt(const FVector& WorldPosition) const
+{
+    const FVector2D Position(WorldPosition.X-GetActorLocation().X,WorldPosition.Y-GetActorLocation().Y);
+    double BestDistanceSq = TNumericLimits<double>::Max();
+    FName Name;
+    for (const FStreetSegment& Segment : Streets)
+    {
+        const double DistanceSq=FVector2D::DistSquared(Position,ClosestOnSeg(Position,Segment.A,Segment.B));
+        if (DistanceSq < BestDistanceSq && DistanceSq <= FMath::Square(Segment.HalfWidth+200.f))
+        {
+            BestDistanceSq=DistanceSq;
+            Name=Segment.Name;
+        }
+    }
+    return Name.IsNone() ? FString() : Name.ToString();
 }

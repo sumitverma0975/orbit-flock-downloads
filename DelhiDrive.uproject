@@ -2,7 +2,7 @@
 	"FileVersion": 3,
 	"EngineAssociation": "5.5",
 	"Category": "",
-	"Description": "Delhi Drive - Dr. Driving style game with Indian roads (Unreal Engine 5, C++)",
+	"Description": "Delhi Drive driving school, career and district tours in Delhi and Chandigarh",
 	"Modules": [
 		{
 			"Name": "DelhiDrive",
@@ -12,7 +12,6 @@
 		}
 	],
 	"Plugins": [
-		{ "Name": "ChaosVehiclesPlugin", "Enabled": true },
 		{ "Name": "ProceduralMeshComponent", "Enabled": true },
 		{ "Name": "PythonScriptPlugin", "Enabled": true, "TargetAllowList": [ "Editor" ] },
 		{ "Name": "EditorScriptingUtilities", "Enabled": true, "TargetAllowList": [ "Editor" ] }

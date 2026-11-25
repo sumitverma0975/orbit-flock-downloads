@@ -27,6 +27,7 @@ private:
 
 	UPROPERTY(VisibleAnywhere) TObjectPtr<USphereComponent> Trigger;
 	UPROPERTY(VisibleAnywhere) TObjectPtr<UStaticMeshComponent> Beam;
+	UPROPERTY() TArray<TObjectPtr<UStaticMeshComponent>> BayPieces;
 	bool bStateKnown = false;
 	bool bWasActive = false;
 };

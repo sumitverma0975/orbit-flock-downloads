@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Build the UE editor target, then create missing Delhi and Chandigarh .umaps."""
+"""Build the UE editor target, import runtime assets, then create both city maps."""
 import argparse
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -8,6 +9,29 @@ import sys
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SETUP_SCRIPTS = ("import_vehicle_assets.py", "import_environment.py", "create_map_in_editor.py")
+
+
+def run_editor_task(editor, project, name):
+    marker = ROOT / "Saved/Setup" / (Path(name).stem + ".json")
+    marker.unlink(missing_ok=True)
+    environment = dict(os.environ, DELHIDRIVE_SETUP_SCRIPT=name)
+    subprocess.run([
+        str(editor), str(project), "-run=pythonscript",
+        f"-script={ROOT / 'Tools/run_editor_setup.py'}", "-unattended",
+        "-nop4", "-nosplash", "-NullRHI", "-stdout", "-FullStdOutLogOutput",
+    ], check=True, cwd=ROOT, env=environment)
+    if not marker.is_file() or json.loads(marker.read_text()).get("success") is not True:
+        raise RuntimeError(f"Unreal task did not complete successfully: {name}; inspect Saved/Setup and the Unreal log")
+
+
+def required_imported_assets():
+    manifest = json.loads((ROOT / "SourceAssets/Vehicles/prepared_manifest.json").read_text())
+    paths = [ROOT / "Content" / (entry["asset_path"].split(".", 1)[0][len("/Game/"):] + ".uasset")
+             for entry in manifest["assets"]]
+    paths.extend(ROOT / "Content/Environment" / ("M_" + name + ".uasset")
+                 for name in ("Asphalt", "Ground", "Facade", "Roof"))
+    return paths
 
 
 def main():
@@ -20,9 +44,6 @@ def main():
         if target_map.is_file() and target_map.stat().st_size == 0:
             print(f"ERROR: existing map is empty: {target_map}. Restore it before running setup.", file=sys.stderr)
             return 1
-    if all(target_map.is_file() for target_map in target_maps):
-        print("Preserving existing city maps:", ", ".join(str(path) for path in target_maps))
-        return 0
     if not args.ue_root:
         print("ERROR: set UE_ROOT to an installed Unreal Engine 5.5 directory.", file=sys.stderr)
         return 1
@@ -44,20 +65,25 @@ def main():
             if host != "Win64":
                 command.insert(0, "bash")
             subprocess.run(command, check=True, cwd=ROOT)
-        subprocess.run([
-            str(editor), str(project), "-run=pythonscript",
-            f"-script={ROOT / 'Tools/create_map_in_editor.py'}", "-unattended",
-            "-nop4", "-nosplash", "-NullRHI", "-stdout", "-FullStdOutLogOutput",
-        ], check=True, cwd=ROOT)
-    except (OSError, subprocess.CalledProcessError) as exc:
-        print(f"ERROR: map generation failed: {exc}", file=sys.stderr)
+        for name in SETUP_SCRIPTS:
+            run_editor_task(editor, project, name)
+        vehicle_report = json.loads((ROOT / "Saved/VehicleAssetImport.json").read_text())
+        if vehicle_report.get("schema_version") != 2 or vehicle_report.get("success") is not True:
+            raise RuntimeError("Vehicle importer did not verify all prepared runtime meshes")
+        missing_assets = [str(path.relative_to(ROOT)) for path in required_imported_assets()
+                          if not path.is_file() or path.stat().st_size == 0]
+        if missing_assets:
+            raise RuntimeError("Imported runtime assets missing: " + ", ".join(missing_assets))
+    except (OSError, ValueError, KeyError, RuntimeError, subprocess.CalledProcessError) as exc:
+        print(f"ERROR: editor asset/map setup failed: {exc}", file=sys.stderr)
         return 1
     missing_maps = [str(path) for path in target_maps if not path.is_file() or path.stat().st_size == 0]
     if missing_maps:
         print("ERROR: Unreal did not save the expected nonempty city maps: " + ", ".join(missing_maps), file=sys.stderr)
         return 1
     print("City maps present:", ", ".join(str(path) for path in target_maps))
-    print("Open both in Unreal Editor to validate lighting, roads and the configured vehicle.")
+    print("Prepared vehicle meshes and four environment materials are present.")
+    print("Open both maps in Unreal Editor to validate lighting, roads and native vehicle handling.")
     return 0
 
 
