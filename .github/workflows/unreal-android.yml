@@ -1,0 +1,69 @@
+name: Package Delhi Drive for Android
+
+on:
+  push:
+    tags:
+      - 'delhi-drive-ue5-android-*'
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ${{ vars.DELHIDRIVE_ANDROID_RUNNER || 'windows-2022' }}
+    env:
+      PYTHONUTF8: 1
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build and verify the tagged Unreal project
+        env:
+          DELHIDRIVE_ENGINE_PATH: ${{ vars.DELHIDRIVE_UE_ROOT }}
+        shell: python {0}
+        run: |
+          import os, pathlib, subprocess, sys, tempfile
+          root = pathlib.Path.cwd()
+          archive = tempfile.mkdtemp(prefix="delhidrive-", dir=os.environ["RUNNER_TEMP"])
+          env = dict(os.environ, DELHIDRIVE_BUILD_OUTPUT=archive)
+          if env.get("DELHIDRIVE_ENGINE_PATH"):
+              env["UE_ROOT"] = env["DELHIDRIVE_ENGINE_PATH"]
+          command = ["cmd", "/d", "/c", "Tools\\build_apk.bat"] if os.name == "nt" else ["bash", "Tools/build_apk.sh"]
+          subprocess.run(command, env=env, check=True)
+          subprocess.run([sys.executable, "Tools/stage_android_download.py", archive, str(root/"Artifacts"/"Verified")], check=True)
+      - name: Save verified download
+        uses: actions/upload-artifact@v4
+        with:
+          name: DelhiDrive-Android
+          path: Artifacts/Verified/
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: DelhiDrive-Android
+          path: verified
+      - name: Publish verified APK to GitHub Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          cd verified
+          sha256sum --check SHA256SUMS
+          if [ "$(stat -c %s DelhiDrive.apk)" -ge 2147483648 ]; then
+            echo "The APK exceeds GitHub Releases' per-file size limit. Download the verified Android artifact from this run." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          tag="delhi-drive-apk-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          printf 'ARM64 Android package built from %s (%s). Download DelhiDrive.apk to install. The attached report records size, signature verification and SHA-256.\n' "$BUILD_TAG" "$GITHUB_SHA" > "$RUNNER_TEMP/release-notes.md"
+          gh release create "$tag" DelhiDrive.apk SHA256SUMS Android-verification.json --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Delhi Drive for Android · build $GITHUB_RUN_NUMBER" --notes-file "$RUNNER_TEMP/release-notes.md" --prerelease --latest=false
+          echo "[Download DelhiDrive.apk](https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/DelhiDrive.apk)" >> "$GITHUB_STEP_SUMMARY"

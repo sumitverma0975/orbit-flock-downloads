@@ -40,6 +40,12 @@ The helper checks source data, runs Turnkey, compiles DelhiDriveEditor, imports 
 
 The verifier requires a valid APK signature, an ARM64 Unreal library and cooked game data. It checks that the combined deliverable stays at or below **3,000,000,000 bytes**. The source ZIP size is independent of the installed or downloadable game size. See [the build attempt](Docs/UE5-build-attempt.log).
 
+## Build and download through GitHub Actions
+
+Pushing a tag named `delhi-drive-ue5-android-*` on a revision of this project starts **Package Delhi Drive for Android**. The runner needs Python 3, Unreal 5.5 with Android platform support, and a configured Android SDK/NDK. Use the repository variable `DELHIDRIVE_ANDROID_RUNNER` to select a connected Windows, Linux or macOS runner by label. The default is GitHub's `windows-2022` image, which needs an accessible engine installation. Set `DELHIDRIVE_UE_ROOT` to the engine directory, or supply `UE_ROOT` on the runner. Windows also checks the standard Epic Games install location.
+
+A successful run uploads the verified APK, its SHA-256 and its verification report as the **DelhiDrive-Android** workflow artifact. For APKs below GitHub Releases’ 2 GiB per-file limit, it also publishes a prerelease with a direct APK link in the run summary. Larger APKs that meet the game's 3 GB limit remain available through the workflow artifact. If compilation, cooking or verification fails, the run ends without publishing a download.
+
 ## Sources
 
 [Vehicle authors, licences and modifications](SourceAssets/Vehicles/ATTRIBUTION.md) · [Surface and HDR sources](SourceAssets/Environment/ATTRIBUTION.md) · [OpenStreetMap extracts and limitations](Content/Data/README.md) · [Driving audio](Tools/DRIVING_AUDIO.md).
