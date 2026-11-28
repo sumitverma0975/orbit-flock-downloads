@@ -2,6 +2,8 @@
 
 The Android build command exited with code 1 on this host. Unreal Engine 5.5 and an accessible Android-capable Unreal build worker were unavailable. The source archive is downloadable. A signed Unreal APK, an Unreal gameplay capture, and measured on-device performance are pending.
 
+On 28 November 2026, GitHub ran the Android packager for source revision `0c81f33`. The Windows runner checked out the project and passed source preflight. It stopped at the missing Unreal Automation Tool (`RunUAT.bat`) before editor compilation. The publication step was skipped. [Hosted package attempt](https://github.com/sumitverma0975/orbit-flock-downloads/actions/runs/46153580314) · [Passing source validation for that revision](https://github.com/sumitverma0975/orbit-flock-downloads/actions/runs/46153580246).
+
 | Check | Result |
 | --- | --- |
 | Vehicle inputs | All twelve prepared GLBs matched their catalog IDs, source checksums, dimensions and expected axes. All three externally sourced models had provenance records. |

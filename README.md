@@ -20,7 +20,7 @@ The renderer uses mobile forward shading, daylight image-based lighting, a direc
 
 ## Build on an Unreal Android workstation
 
-Install Unreal Engine 5.5 with Android platform support, a working desktop C++ compiler for the editor target, and the Android SDK, NDK and JDK supported by that exact engine release. Use Python 3.10 or later for the host tools (Python 3.12 was used for validation). The source archive includes the prepared car meshes, surface textures, daylight panorama, district maps and geometry. Asset preparation does not require an online map service or Blender during a normal build.
+Install Unreal Engine 5.5 with Android platform support, a working desktop C++ compiler for the editor target, and the Android SDK, NDK and JDK supported by that exact engine release. Epic lists SDK and build-tools 34, NDK r25b and OpenJDK 21.0.3 for UE 5.5. A custom installed engine build must include the Android target. See the [UE 5.5 platform requirements](https://dev.epicgames.com/documentation/en-us/unreal-engine/unreal-engine-5-5-release-notes). Use Python 3.10 or later for the host tools (Python 3.12 was used for validation). The source archive includes the prepared car meshes, surface textures, daylight panorama, district maps and geometry. Asset preparation does not require an online map service or Blender during a normal build.
 
 Linux or macOS:
 

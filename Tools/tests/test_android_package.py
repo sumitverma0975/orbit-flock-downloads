@@ -94,6 +94,16 @@ class AndroidDeliveryTests(unittest.TestCase):
                     verify.verify_delivery(root)
             self.assertFalse((root / "Android-verification.json").exists())
 
+    def test_linux_installed_editor_without_cmd_variant(self):
+        with tempfile.TemporaryDirectory() as temp:
+            engine = Path(temp)
+            binaries = engine / "Engine/Binaries/Linux"
+            binaries.mkdir(parents=True)
+            (binaries / "UnrealEditor").touch()
+            self.assertEqual(setup_map.editor_executable(engine, "Linux"), binaries / "UnrealEditor")
+            (binaries / "UnrealEditor-Cmd").touch()
+            self.assertEqual(setup_map.editor_executable(engine, "Linux"), binaries / "UnrealEditor-Cmd")
+
     def test_stale_editor_marker_cannot_mask_commandlet_failure(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

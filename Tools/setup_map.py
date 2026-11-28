@@ -34,6 +34,16 @@ def required_imported_assets():
     return paths
 
 
+def editor_executable(engine, host):
+    binaries = engine / "Engine/Binaries" / host
+    if host == "Win64":
+        return binaries / "UnrealEditor-Cmd.exe"
+    if host == "Mac":
+        return binaries / "UnrealEditor.app/Contents/MacOS/UnrealEditor"
+    commandlet = binaries / "UnrealEditor-Cmd"
+    return commandlet if commandlet.is_file() else binaries / "UnrealEditor"
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ue-root", default=os.environ.get("UE_ROOT"))
@@ -51,10 +61,7 @@ def main():
     host = "Win64" if sys.platform == "win32" else "Mac" if sys.platform == "darwin" else "Linux"
     batch = engine / "Engine/Build/BatchFiles"
     build = batch / "Build.bat" if host == "Win64" else batch / host / "Build.sh"
-    binaries = engine / "Engine/Binaries" / host
-    editor = binaries / ("UnrealEditor-Cmd.exe" if host == "Win64" else "UnrealEditor-Cmd")
-    if host == "Mac":
-        editor = binaries / "UnrealEditor.app/Contents/MacOS/UnrealEditor"
+    editor = editor_executable(engine, host)
     if not editor.is_file() or (not args.skip_editor_build and not build.is_file()):
         print(f"ERROR: Unreal editor/toolchain unavailable under {engine}.", file=sys.stderr)
         return 1
